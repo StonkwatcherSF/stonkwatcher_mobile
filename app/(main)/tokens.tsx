@@ -8,6 +8,7 @@ import {
   ScrollView,
   StatusBar,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,58 +19,15 @@ import {
   GRADIENTS,
 } from "../../constants/theme";
 import { useNavScroll } from "../../components/NavAnimationContext";
+import TokenImage from "../../components/TokenImage";
 import { useRouter } from "expo-router";
+import { QUOTE_FILTERS, type QuoteFilter } from "../../lib/config";
+import { formatMc, formatPrice } from "../../lib/format";
+import { truncateAddress } from "../../lib/solana";
+import { useTokens } from "../../hooks/useTokens";
+import type { StonkFunToken } from "../../lib/types";
 
 const PLACEHOLDER = require("../../assets/images/placeholder.png");
-
-type Token = {
-  id: string;
-  name: string;
-  symbol: string;
-  marketCap: string;
-  price: string;
-  change: number;
-  isNew: boolean;
-};
-
-const TOKENS: Token[] = [
-  {
-    id: "1",
-    name: "Stonk Watcher",
-    symbol: "STNK",
-    marketCap: "$1.32 MC",
-    price: "$0.00156",
-    change: 20.61,
-    isNew: false,
-  },
-  {
-    id: "2",
-    name: "Anonymous Cat",
-    symbol: "CAT",
-    marketCap: "$52.87 MC",
-    price: "$0.054631",
-    change: -10.23,
-    isNew: true,
-  },
-  {
-    id: "3",
-    name: "Nullmask",
-    symbol: "NULL",
-    marketCap: "$28.71 MC",
-    price: "$0.028718",
-    change: -2.59,
-    isNew: false,
-  },
-  {
-    id: "4",
-    name: "Super Inu",
-    symbol: "INU",
-    marketCap: "$15.39 MC",
-    price: "$0.0154",
-    change: 32.64,
-    isNew: true,
-  },
-];
 
 type Tab = "Trending" | "New";
 
@@ -80,29 +38,18 @@ export default function TokensScreen() {
   const [activeTab, setActiveTab] =
     useState<Tab>("Trending");
 
-  const [quote, setQuote] = useState("All Quotes");
+  const [quote, setQuote] = useState<QuoteFilter>("All Quotes");
   const [showQuotes, setShowQuotes] = useState(false);
-
-  const visibleTokens = TOKENS.filter((token) => {
-    if (activeTab === "New") {
-      return token.isNew;
-    }
-
-    return true;
-  });
+  const { data: tokens, loading, error } = useTokens(activeTab, quote);
 
   const openDeposit = () => {
     router.push("/settings/deposit" as any);
   };
 
-  const openToken = (token: Token) => {
-    const tokenId = token.name
-      .toLowerCase()
-      .replace(/\s+/g, "-");
-
+  const openToken = (token: StonkFunToken) => {
     router.push({
       pathname: "/dex/[tokenId]",
-      params: { tokenId },
+      params: { tokenId: token.mint },
     });
   };
 
@@ -193,7 +140,7 @@ export default function TokensScreen() {
 
         {showQuotes && (
           <View style={styles.quoteMenu}>
-            {["All Quotes", "SOL", "USDC"].map(
+            {QUOTE_FILTERS.map(
               (option) => (
                 <Pressable
                   key={option}
@@ -226,20 +173,27 @@ export default function TokensScreen() {
           }}
           showsVerticalScrollIndicator={false}
         >
-          {visibleTokens.map((token) => (
+          {loading && !(tokens?.length) ? (
+            <ActivityIndicator color={COLORS.stonkGreen} style={{ marginTop: 28 }} />
+          ) : null}
+          {error && !(tokens?.length) ? (
+            <Text style={styles.marketCap}>{error}</Text>
+          ) : null}
+          {(tokens ?? []).map((token) => {
+            const change = token.market?.priceChange24h ?? 0;
+            return (
             <Pressable
-              key={token.id}
+              key={token.mint}
               style={styles.tokenCard}
               onPress={() => openToken(token)}
               accessibilityRole="button"
-              accessibilityLabel={`Open ${token.name}`}
+              accessibilityLabel={`Open ${token.name || token.symbol || "token"}`}
             >
               {/* TOKEN AVATAR */}
               <View style={styles.tokenAvatar}>
-                <Image
-                  source={PLACEHOLDER}
+                <TokenImage
+                  uri={token.imageUrl || token.logoUrl}
                   style={styles.tokenImage}
-                  resizeMode="cover"
                 />
               </View>
 
@@ -250,7 +204,7 @@ export default function TokensScreen() {
                     style={styles.tokenName}
                     numberOfLines={1}
                   >
-                    {token.name}
+                    {token.name || token.symbol || truncateAddress(token.mint)}
                   </Text>
 
                   <BadgeCheck
@@ -262,14 +216,14 @@ export default function TokensScreen() {
                 </View>
 
                 <Text style={styles.marketCap}>
-                  {token.marketCap}
+                  {formatMc(token.market?.marketCapUsd)}
                 </Text>
               </View>
 
               {/* PRICE */}
               <View style={styles.priceDetails}>
                 <Text style={styles.price}>
-                  {token.price}
+                  {formatPrice(token.market?.priceUsd)}
                 </Text>
 
                 <Text
@@ -277,18 +231,19 @@ export default function TokensScreen() {
                     styles.change,
                     {
                       color:
-                        token.change >= 0
+                        change >= 0
                           ? COLORS.buy
                           : COLORS.sell,
                     },
                   ]}
                 >
-                  {token.change >= 0 ? "▲" : "▼"}{" "}
-                  {Math.abs(token.change).toFixed(2)}%
+                  {change >= 0 ? "▲" : "▼"}{" "}
+                  {Math.abs(change).toFixed(2)}%
                 </Text>
               </View>
             </Pressable>
-          ))}
+            );
+          })}
         </ScrollView>
       </SafeAreaView>
     </View>

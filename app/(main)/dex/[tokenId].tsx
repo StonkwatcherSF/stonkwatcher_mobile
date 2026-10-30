@@ -8,55 +8,71 @@ import { ArrowLeft, BadgeCheck, Copy, Send, SlidersHorizontal } from "lucide-rea
 import { COLORS, FONTS, GRADIENTS } from "../../../constants/theme";
 import TradeSheet from "../../../components/TradeSheet";
 import TradeConfirmation from "../../../components/TradeConfirmation";
+import TokenImage from "../../../components/TokenImage";
 import { shareExternally } from "../../../utils/share";
 import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import HistoryIcon from "../../../assets/icons/transaction-history.svg";
 import WalletHistorySheet from "../../../components/WalletHistorySheet";
+import { useTokenMarket } from "../../../hooks/useTokenMarket";
+import { useOhlcv, type ChartPeriod } from "../../../hooks/useOhlcv";
+import { useTokenInfo, useTokenTrades } from "../../../hooks/useTokenInfo";
+import {
+  chartAxisLabel,
+  compactUsd,
+  formatAge,
+  formatCount,
+  formatMc,
+  formatPct,
+  formatPrice,
+  formatTokenAmount,
+  formatTxTime,
+  signedUsd,
+} from "../../../lib/format";
+import { isSolanaAddress, truncateAddress } from "../../../lib/solana";
+import type { IntelTransfer, OhlcvCandle, TokenInfoPayload } from "../../../lib/types";
 
 const PLACEHOLDER = require("../../../assets/images/placeholder.png");
 
-type TokenInfo = { name: string; symbol: string; icon: string; marketCap: string; price: string; change: number };
-const TOKEN_DATA: Record<string, TokenInfo> = {
-  "stonk-watcher": { name: "Stonk Watcher", symbol: "STNK", icon: "🟢", marketCap: "$1.32M", price: "$0.00156", change: 20.61 },
-  "anonymous-cat": { name: "Anonymous Cat", symbol: "CAT", icon: "🐱", marketCap: "$52.87M", price: "$0.054631", change: -10.23 },
-  nullmask: { name: "Nullmask", symbol: "NULL", icon: "🎭", marketCap: "$28.71M", price: "$0.028718", change: -2.59 },
-  "super-inu": { name: "Super Inu", symbol: "INU", icon: "🐕", marketCap: "$15.39M", price: "$0.0154", change: 32.64 },
-};
 const PERIODS = ["1s", "1m", "5m", "15m", "1h", "All"] as const;
 type Period = (typeof PERIODS)[number];
 type InfoTab = "Transactions" | "Token Info";
 const INFO_TABS: InfoTab[] = ["Transactions", "Token Info"];
 
-// Figma placeholder values; not live token analytics.
-const DEMO_TOKEN_METRICS = [
-  { label: "Top 10 Holder", value: "10%" },
-  { label: "Dev Hold Percentage", value: "33%" },
-  { label: "Snipers Hold", value: "2%" },
-  { label: "Freeze Auth", value: "20%" },
-  { label: "Mint Auth", value: "15%" },
-  { label: "Dex", value: "120%" },
-  { label: "Buyback", value: "40%" },
-  { label: "Burn", value: "103%" },
-  { label: "Clusters", value: "10%" },
-];
+function authLabel(value: "on" | "off" | null | undefined) {
+  if (value === "on") return "On";
+  if (value === "off") return "Off";
+  return "—";
+}
 
-const DEMO_HOLDER_REWARDS = [
-  { label: "Paid to Holders", value: "$12.0M", note: "7.4k ZEC" },
-  { label: "Pending Payout", value: "$0", note: "0 ZEC" },
-  { label: "Payouts", value: "1,801,149" },
-  { label: "Holders", value: "28,727" },
-];
-
-function TokenInfoPanel() {
+function TokenInfoPanel({ info }: { info: TokenInfoPayload | null }) {
+  const stats = info?.stats;
+  const rewards = info?.rewards;
+  const metrics = [
+    { label: "Top 10 Holder", value: formatPct(stats?.top10Pct) },
+    { label: "Dev Hold Percentage", value: formatPct(stats?.devPct) },
+    { label: "Snipers Hold", value: formatPct(stats?.sniperPct) },
+    { label: "Freeze Auth", value: authLabel(stats?.freezeAuth) },
+    { label: "Mint Auth", value: authLabel(stats?.mintAuth) },
+    { label: "Dex", value: formatPct(stats?.dexPct) },
+    { label: "Buyback", value: formatPct(stats?.buybackPct) },
+    { label: "Burn", value: formatPct(stats?.burnPct) },
+    { label: "Clusters", value: formatPct(stats?.clusterPct) },
+  ];
+  const holderRewards = [
+    { label: "Paid to Holders", value: compactUsd(rewards?.paidUsd), note: rewards?.paidTokens ? `${formatTokenAmount(rewards.paidTokens)} ${rewards.quoteSymbol || ""}`.trim() : "" },
+    { label: "Pending Payout", value: compactUsd(rewards?.pendingUsd), note: rewards?.pendingTokens ? `${formatTokenAmount(rewards.pendingTokens)} ${rewards.quoteSymbol || ""}`.trim() : "" },
+    { label: "Payouts", value: formatCount(rewards?.payouts) },
+    { label: "Holders", value: formatCount(rewards?.holders) },
+  ];
   return (
     <View style={styles.tokenInfoPanel}>
       <View style={styles.sectionHeading}>
         <Text style={styles.sectionTitle}>Token Info <Text style={styles.sectionAccent}>♙</Text></Text>
-        <Text style={styles.demoIndicator}>Demo statistics</Text>
+        <Text style={styles.demoIndicator}>{info ? "Live statistics" : "Loading statistics"}</Text>
       </View>
       <View style={styles.metricGrid}>
-        {DEMO_TOKEN_METRICS.map((metric) => (
+        {metrics.map((metric) => (
           <View key={metric.label} style={styles.metricCard}>
             <Text style={styles.metricValue}>{metric.value}</Text>
             <Text style={styles.metricLabel} numberOfLines={2}>{metric.label}</Text>
@@ -65,10 +81,10 @@ function TokenInfoPanel() {
       </View>
       <View style={[styles.sectionHeading, styles.rewardsHeading]}>
         <Text style={styles.sectionTitle}>Holder Rewards <Text style={styles.sectionAccent}>♕</Text></Text>
-        <Text style={styles.sectionTime}>Last 13h ago</Text>
+        <Text style={styles.sectionTime}>{rewards?.lastPayoutAt ? formatAge(rewards.lastPayoutAt) : "—"}</Text>
       </View>
       <View style={styles.rewardGrid}>
-        {DEMO_HOLDER_REWARDS.map((reward) => (
+        {holderRewards.map((reward) => (
           <View key={reward.label} style={styles.rewardCard}>
             <Text style={styles.rewardLabel}>{reward.label}</Text>
             <Text style={styles.rewardValue}>{reward.value}</Text>
@@ -80,28 +96,46 @@ function TokenInfoPanel() {
   );
 }
 
-
-function DemoCandles({ width, period }: { width: number; period: Period }) {
+function PriceCandles({ width, candles }: { width: number; candles: OhlcvCandle[] }) {
   const height = 255;
   const right = 47;
   const chartWidth = width - right;
-  const candles = useMemo(() => {
-    const seed = PERIODS.indexOf(period) + 1;
-    return Array.from({ length: 27 }, (_, i) => {
-      const center = 0.47 + Math.sin(i * 0.69 + seed * 0.2) * 0.12 + Math.sin(i * 0.21 + seed) * 0.19 - i * 0.008;
-      const open = Math.max(0.13, Math.min(0.87, center));
-      const close = Math.max(0.13, Math.min(0.87, center + Math.sin(i * 1.83 + seed) * 0.16));
-      return { open, close, high: Math.max(0.04, Math.min(open, close) - 0.065), low: Math.min(0.96, Math.max(open, close) + 0.075) };
-    });
-  }, [period]);
+  const { bars, labels } = useMemo(() => {
+    const visible = candles.slice(-36);
+    if (!visible.length) {
+      return {
+        bars: [] as { open: number; close: number; high: number; low: number }[],
+        labels: ["—", "—", "—", "—", "—"],
+      };
+    }
+    const highs = visible.map((row) => row.high);
+    const lows = visible.map((row) => row.low);
+    const max = Math.max(...highs);
+    const min = Math.min(...lows);
+    const span = max - min || max * 0.04 || 1;
+    const pad = span * 0.08;
+    const top = max + pad;
+    const bottom = Math.max(0, min - pad);
+    const range = top - bottom || 1;
+    const norm = (price: number) => (top - price) / range;
+    return {
+      bars: visible.map((row) => ({
+        open: norm(row.open),
+        close: norm(row.close),
+        high: norm(row.high),
+        low: norm(row.low),
+      })),
+      labels: [0, 1, 2, 3, 4].map((step) => chartAxisLabel(top - (range * step) / 4)),
+    };
+  }, [candles]);
   const y = (v: number) => v * height;
   return (
     <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
       {Array.from({ length: 7 }, (_, i) => <Line key={`h${i}`} x1={0} x2={chartWidth} y1={i * 42 + 2} y2={i * 42 + 2} stroke="#27300E" strokeWidth={0.5} />)}
       {Array.from({ length: 9 }, (_, i) => <Line key={`v${i}`} y1={0} y2={height} x1={i * chartWidth / 8} x2={i * chartWidth / 8} stroke="#27300E" strokeWidth={0.5} />)}
-      {candles.map((c, i) => {
-        const x = 5 + i * ((chartWidth - 12) / candles.length);
-        const rising = c.close < c.open;
+      {bars.map((c, i) => {
+        const x = 5 + i * ((chartWidth - 12) / Math.max(bars.length, 1));
+        const rising = c.close <= c.open;
         const color = rising ? COLORS.buy : COLORS.sell;
         return <React.Fragment key={i}>
           <Line x1={x + 3} x2={x + 3} y1={y(c.high)} y2={y(c.low)} stroke={color} strokeWidth={1.5} />
@@ -109,7 +143,7 @@ function DemoCandles({ width, period }: { width: number; period: Period }) {
         </React.Fragment>;
       })}
       <Line x1={0} x2={chartWidth} y1={135} y2={135} stroke={COLORS.stonkGreen} strokeWidth={1} strokeDasharray="5 5" opacity={0.5} />
-      {['$36.5k', '$36.4k', '$36.3k', '$36.2k', '$36.1k'].map((label, i) => <React.Fragment key={label}>
+      {labels.map((label, i) => <React.Fragment key={`${label}-${i}`}>
         <Rect x={chartWidth + 2} y={i * 49 + 4} width={right - 3} height={18} fill="transparent" />
         <SvgText x={chartWidth + 4} y={i * 49 + 17} label={label} />
       </React.Fragment>)}
@@ -126,8 +160,8 @@ export default function DexTokenScreen() {
   const [sharingPosition, setSharingPosition] = useState(false);
   const [historyVisible, setHistoryVisible] = useState(false);
   const { tokenId } = useLocalSearchParams<{ tokenId?: string }>();
+  const mint = typeof tokenId === "string" ? tokenId : "";
   const { width } = useWindowDimensions();
-  const token = TOKEN_DATA[typeof tokenId === "string" ? tokenId : ""];
   const [period, setPeriod] = useState<Period>("1m");
   const [infoTab, setInfoTab] = useState<InfoTab>("Transactions");
   const [tradeMode, setTradeMode] = useState<"buy" | "sell" | null>(null);
@@ -136,10 +170,22 @@ export default function DexTokenScreen() {
     tokenId: string;
     amount: number;
   } | null>(null);
+  const { data: detail } = useTokenMarket(mint);
+  const { data: candles } = useOhlcv(mint, period as ChartPeriod);
+  const tokenMeta = detail?.token;
+  const market = detail?.market;
+  const name = tokenMeta?.name || tokenMeta?.symbol || truncateAddress(mint);
+  const symbol = (tokenMeta?.symbol || "").replace(/^\$/, "") || "TOKEN";
+  const priceUsd = market?.priceUsd ?? tokenMeta?.market?.priceUsd ?? null;
+  const marketCapUsd = market?.marketCapUsd ?? tokenMeta?.market?.marketCapUsd ?? null;
+  const change = tokenMeta?.market?.priceChange24h ?? 0;
+  const { data: trades } = useTokenTrades(mint, tokenMeta?.name, tokenMeta?.symbol);
+  const { data: tokenInfo } = useTokenInfo(mint);
 
-  if (!token) {
+  if (!isSolanaAddress(mint)) {
     return <SafeAreaView style={styles.root}><Pressable onPress={() => router.back()} style={styles.back}><ArrowLeft color={COLORS.white} /></Pressable><Text style={styles.heading}>Token not found</Text></SafeAreaView>;
   }
+  const token = { name, symbol, marketCap: formatMc(marketCapUsd).replace(" MC", ""), price: formatPrice(priceUsd), change };
   const positive = token.change >= 0;
 
   const handleSharePosition = async () => {
@@ -173,7 +219,7 @@ export default function DexTokenScreen() {
         `Market Cap: ${token.marketCap}`,
         `Price: ${token.price}`,
         `Change: ${positive ? "+" : ""}${token.change.toFixed(2)}%`,
-        `Stonk Watcher (Demo data)`,
+        "Stonk Watcher",
       ].join("\n"),
     });
   };
@@ -213,11 +259,11 @@ export default function DexTokenScreen() {
             </View>
           </View>
           <View style={styles.tokenHeader}>
-            <View style={styles.tokenAvatar}><Image source={PLACEHOLDER} style={styles.tokenImage} resizeMode="cover" /></View>
+            <View style={styles.tokenAvatar}><TokenImage uri={tokenMeta?.imageUrl || tokenMeta?.logoUrl} style={styles.tokenImage} /></View>
             <View style={{ flex: 1 }}><View style={styles.nameRow}><Text style={styles.tokenName}>{token.name}</Text><BadgeCheck size={17} color={COLORS.stonkGreen} /></View><View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5 }}><Text style={styles.symbol}>${token.symbol}</Text><Copy size={12} color={COLORS.grey} /></View></View>
             <View style={styles.marketInfo}><Text style={styles.marketLabel}>MC</Text><Text style={styles.marketValue}>{token.marketCap}</Text><Text style={[styles.change, { color: positive ? COLORS.buy : COLORS.sell }]}>{positive ? "▲" : "▼"} {Math.abs(token.change).toFixed(2)}%</Text></View>
           </View>
-          <View style={styles.chart}><DemoCandles width={Math.max(280, width - 30)} period={period} /></View>
+          <View style={styles.chart}><PriceCandles width={Math.max(280, width - 30)} candles={candles ?? []} /></View>
           <View style={styles.periodRow}>{PERIODS.map(p => <Pressable key={p} onPress={() => setPeriod(p)} style={[styles.periodButton, period === p && styles.selectedPeriod]}><Text style={[styles.periodText, period === p && styles.selectedText]}>{p}</Text></Pressable>)}<SlidersHorizontal size={17} color={COLORS.grey} style={{ marginLeft: 5 }} /></View>
           <LinearGradient colors={["#181C09", "#262D05"]} style={styles.positionOuter}>
             <ViewShot ref={positionShotRef} options={{ format: "png", quality: 1, result: "tmpfile" }}>
@@ -225,25 +271,25 @@ export default function DexTokenScreen() {
             </ViewShot>
             <Pressable style={styles.share} disabled={sharingPosition} onPress={handleSharePosition} accessibilityRole="button" accessibilityLabel="Share your position"><Send color={COLORS.white} size={14} /><Text style={styles.shareText}>Share</Text></Pressable>
           </LinearGradient>
-          <View style={styles.tabs}>{INFO_TABS.map(tab => <Pressable key={tab} style={[styles.tab, infoTab === tab && styles.tabActive]} onPress={() => setInfoTab(tab)}><Text numberOfLines={1} style={[styles.tabText, infoTab === tab && styles.tabTextActive]}>{tab === "Transactions" ? "14 Transactions" : tab}</Text></Pressable>)}</View>
+          <View style={styles.tabs}>{INFO_TABS.map(tab => <Pressable key={tab} style={[styles.tab, infoTab === tab && styles.tabActive]} onPress={() => setInfoTab(tab)}><Text numberOfLines={1} style={[styles.tabText, infoTab === tab && styles.tabTextActive]}>{tab === "Transactions" ? `${trades?.length ?? 0} Transactions` : tab}</Text></Pressable>)}</View>
           {infoTab === "Transactions" ? (
-            Array.from({ length: 5 }, (_, i) => (
-              <View style={styles.txRow} key={i}>
+            (trades?.length ? trades.slice(0, 14) : []).map((tx: IntelTransfer) => (
+              <View style={styles.txRow} key={tx.id || tx.signature}>
                 <View>
                   <Text style={styles.txName}>
-                    {i === 4 ? "Received" : "Buy"}
+                    {tx.side === "sell" ? "Sell" : tx.side === "liquidity" ? "Liquidity" : "Buy"}
                   </Text>
-                  <Text style={styles.txTime}>Oct 18 at 9:35 AM</Text>
+                  <Text style={styles.txTime}>{formatTxTime(tx.at)}</Text>
                 </View>
 
                 <View style={{ alignItems: "flex-end" }}>
-                  <Text style={styles.txAmount}>+$12.50</Text>
-                  <Text style={styles.txTime}>1.88 at $82.2M MC</Text>
+                  <Text style={[styles.txAmount, tx.side === "sell" && { color: COLORS.sell }]}>{signedUsd(tx.side === "sell" ? -tx.usd : tx.usd)}</Text>
+                  <Text style={styles.txTime}>{formatTokenAmount(tx.amount)} at {formatMc(marketCapUsd)}</Text>
                 </View>
               </View>
             ))
           ) : (
-            <TokenInfoPanel />
+            <TokenInfoPanel info={tokenInfo} />
           )}
         </ScrollView>
         <View style={styles.bottomBar}><Pressable style={[styles.tradeButton, { backgroundColor: COLORS.sell }]} onPress={() => setTradeMode("sell")}><Text style={styles.tradeText}>Sell</Text></Pressable><Pressable style={[styles.tradeButton, { backgroundColor: COLORS.buy }]} onPress={() => setTradeMode("buy")}><Text style={styles.tradeText}>Buy</Text></Pressable></View>
@@ -254,7 +300,7 @@ export default function DexTokenScreen() {
       {tradeMode !== null && (
         <TradeSheet
           mode={tradeMode}
-          tokenId={typeof tokenId === "string" ? tokenId : "stonk-watcher"}
+          tokenId={mint}
           onClose={() => setTradeMode(null)}
           onTradeConfirmed={(mode, tokenId, amount) => {
             setConfirmedTrade({ mode, tokenId, amount });
@@ -276,7 +322,7 @@ export default function DexTokenScreen() {
           }}
         >
           <TradeConfirmation
-            tokenName={TOKEN_DATA[confirmedTrade.tokenId]?.name ?? token.name}
+            tokenName={token.name}
             mode={confirmedTrade.mode}
             amount={confirmedTrade.amount}
             onDismiss={() => setConfirmedTrade(null)}

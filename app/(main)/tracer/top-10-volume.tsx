@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import {
-  Alert,
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,48 +9,19 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
+import TokenImage from "../../../components/TokenImage";
+import { useVolumeLeaders } from "../../../hooks/useVolumeLeaders";
+import { compactUsd, formatCount, formatMc, prettySymbol } from "../../../lib/format";
+import { truncateAddress } from "../../../lib/solana";
+import type { VolumeLeaderWindow } from "../../../lib/types";
 
 type Period = "24 Hours" | "1 Week";
-type VolumeToken = {
-  id: string;
-  name: string;
-  symbol: string;
-  icon: string;
-  marketCap: string;
-  volume24h: number;
-  volumeWeek: number;
-  trades24h: number;
-  tradesWeek: number;
-};
-
-// Illustrative demo rankings, not live blockchain statistics.
-const volumeTokens: VolumeToken[] = [
-  { id: "spoodermen", name: "spoodermen", symbol: "$SPOODERMEN", icon: "🕷️", marketCap: "$99K MC", volume24h: 8.4, volumeWeek: 245000, trades24h: 8, tradesWeek: 152 },
-  { id: "hamstr", name: "haMSTR", symbol: "$haMSTR", icon: "🐹", marketCap: "$3.8K MC", volume24h: 133000, volumeWeek: 510000, trades24h: 54, tradesWeek: 402 },
-  { id: "trump", name: "Trump Endorsed Coin", symbol: "$TEC", icon: "🪙", marketCap: "$2.4K MC", volume24h: 161000, volumeWeek: 680000, trades24h: 81, tradesWeek: 590 },
-  { id: "four", name: "Unknown Token", symbol: "$TOKEN", icon: "🔹", marketCap: "$28K MC", volume24h: 797000, volumeWeek: 1840000, trades24h: 2212, tradesWeek: 6320 },
-  { id: "mememan", name: "Meme Man", symbol: "$MEMEMAN", icon: "🦸", marketCap: "$203.78K MC", volume24h: 724000, volumeWeek: 2150000, trades24h: 702, tradesWeek: 3940 },
-  { id: "bankroll", name: "Bankroll", symbol: "$BANKROLL", icon: "ⓑ", marketCap: "$15.39K MC", volume24h: 612000, volumeWeek: 1430000, trades24h: 641, tradesWeek: 2700 },
-  { id: "gtavi", name: "GTA VI", symbol: "$GTA6", icon: "🎮", marketCap: "$87K MC", volume24h: 487000, volumeWeek: 1760000, trades24h: 523, tradesWeek: 2850 },
-  { id: "solcat", name: "Sol Cat", symbol: "$SCAT", icon: "🐱", marketCap: "$62K MC", volume24h: 352000, volumeWeek: 910000, trades24h: 410, tradesWeek: 1800 },
-  { id: "moon", name: "Moon Rocket", symbol: "$MOON", icon: "🚀", marketCap: "$112K MC", volume24h: 296000, volumeWeek: 1270000, trades24h: 325, tradesWeek: 2210 },
-  { id: "frog", name: "Frog Club", symbol: "$FROG", icon: "🐸", marketCap: "$41K MC", volume24h: 189000, volumeWeek: 770000, trades24h: 214, tradesWeek: 1330 },
-];
-
-function formatVolume(value: number) {
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
-  if (value >= 1_000) return `$${Math.round(value / 1_000)}K`;
-  return `$${value.toFixed(2)}`;
-}
 
 export default function Top10VolumeScreen() {
   const router = useRouter();
   const [period, setPeriod] = useState<Period>("24 Hours");
-
-  const rankedTokens = useMemo(() => {
-    const field = period === "24 Hours" ? "volume24h" : "volumeWeek";
-    return [...volumeTokens].sort((a, b) => b[field] - a[field]);
-  }, [period]);
+  const window: VolumeLeaderWindow = period === "1 Week" ? "1w" : "24h";
+  const { data: rankedTokens, loading } = useVolumeLeaders(window);
 
   return (
     <View style={styles.screen}>
@@ -89,40 +60,38 @@ export default function Top10VolumeScreen() {
         </View>
 
         <View style={styles.list}>
-          {rankedTokens.map((token, index) => {
-            const volume = period === "24 Hours" ? token.volume24h : token.volumeWeek;
-            const trades = period === "24 Hours" ? token.trades24h : token.tradesWeek;
-            return (
+          {loading && !(rankedTokens?.length) ? (
+            <ActivityIndicator color="#C6E900" style={{ marginVertical: 24 }} />
+          ) : null}
+          {(rankedTokens ?? []).map((token, index) => (
               <Pressable
-                key={token.id}
+                key={token.mint}
                 style={styles.tokenRow}
                 onPress={() =>
-                  Alert.alert("Demo token", "Token analysis for this demo token is not connected yet.")
+                  router.push({ pathname: "/tracer/[address]", params: { address: token.mint } })
                 }
               >
                 <View style={styles.rank}>
-                  <Text style={styles.rankText}>{index + 1}</Text>
+                  <Text style={styles.rankText}>{token.rank || index + 1}</Text>
                 </View>
                 <View style={styles.tokenIcon}>
-                  <Text style={styles.tokenEmoji}>{token.icon}</Text>
+                  <TokenImage uri={token.imageUrl} style={styles.tokenImage} />
                 </View>
                 <View style={styles.tokenInfo}>
                   <Text numberOfLines={1} style={styles.tokenName}>
-                    {token.name} <Text style={styles.symbol}>{token.symbol}</Text>
+                    {token.name || truncateAddress(token.mint)} <Text style={styles.symbol}>{prettySymbol(token.symbol)}</Text>
                   </Text>
-                  <Text style={styles.subText}>{token.marketCap}</Text>
+                  <Text style={styles.subText}>{formatMc(token.marketCapUsd)}</Text>
                 </View>
                 <View style={styles.rightInfo}>
                   <Text style={styles.rightText}>
-                    {period === "24 Hours" ? "24h" : "7d"} {formatVolume(volume)}
+                    {period === "24 Hours" ? "24h" : "7d"} {compactUsd(token.volume24hUsd)}
                   </Text>
-                  <Text style={styles.subText}>♧ {trades.toLocaleString("en-US")}</Text>
+                  <Text style={styles.subText}>♧ {formatCount(token.newHolders)}</Text>
                 </View>
               </Pressable>
-            );
-          })}
+            ))}
         </View>
-        <Text style={styles.demoNote}>Demo preview • Token values and rankings are illustrative.</Text>
       </ScrollView>
     </View>
   );
@@ -145,8 +114,8 @@ const styles = StyleSheet.create({
   tokenRow: { flexDirection: "row", alignItems: "center", backgroundColor: "#151515", borderRadius: 5, minHeight: 69, paddingHorizontal: 9, gap: 7 },
   rank: { width: 23, height: 23, borderRadius: 12, backgroundColor: "#293000", alignItems: "center", justifyContent: "center" },
   rankText: { color: "#D9EF4A", fontSize: 12, fontWeight: "700" },
-  tokenIcon: { width: 43, height: 43, borderRadius: 23, backgroundColor: "#202B29", alignItems: "center", justifyContent: "center" },
-  tokenEmoji: { fontSize: 24 },
+  tokenIcon: { width: 43, height: 43, borderRadius: 23, backgroundColor: "#202B29", overflow: "hidden", alignItems: "center", justifyContent: "center" },
+  tokenImage: { width: "100%", height: "100%", borderRadius: 23 },
   tokenInfo: { flex: 1, minWidth: 0 },
   tokenName: { color: "#FFFFFF", fontSize: 12, fontWeight: "600" },
   symbol: { color: "#C2C2C2", fontWeight: "400", fontSize: 10 },

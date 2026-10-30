@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Alert,
   Animated,
   Keyboard,
   Platform,
@@ -14,6 +13,17 @@ import {
 import { useRouter } from "expo-router";
 import { BadgeCheck, Search, X } from "lucide-react-native";
 import { useNavScroll } from "../../../components/NavAnimationContext";
+import TokenImage from "../../../components/TokenImage";
+import {
+  useDebouncedValue,
+  useSearchRecents,
+  useSearchTokens,
+  useTrendingTokens,
+  type SearchRecent,
+} from "../../../hooks/useSearchTokens";
+import { formatMc, formatPrice, prettySymbol } from "../../../lib/format";
+import { truncateAddress } from "../../../lib/solana";
+import type { StonkFunToken } from "../../../lib/types";
 
 const LIME = "#C6E900";
 const GREEN = "#00D89A";
@@ -23,25 +33,45 @@ const KEYBOARD_GAP = 12;
 
 type SearchItem = {
   id: string;
-  type: "token" | "user";
   name: string;
   symbol: string;
   subtitle: string;
-  avatar: string;
+  imageUrl?: string;
   price: string;
-  change: string;
+  change: number;
   positive: boolean;
   chart?: boolean;
 };
 
-const stonk: SearchItem = { id: "stonk-watcher", type: "token", name: "Stonk Watcher", symbol: "$STWC", subtitle: "$1.32M MC", avatar: "🛡️", price: "$0.00156", change: "20.61%", positive: true, chart: true };
-const rasmr: SearchItem = { id: "rasmr", type: "user", name: "Rasmr", symbol: "@rasmr", subtitle: "@rasmr", avatar: "🧑🏻‍💻", price: "$89,432.90", change: "120.43%", positive: true };
-const cat: SearchItem = { id: "anonymous-cat", type: "token", name: "Anonymous Cat", symbol: "$ANONCAT", subtitle: "$52.87M MC", avatar: "🐱", price: "$0.054631", change: "10.23%", positive: false, chart: true };
-const nullmask: SearchItem = { id: "nullmask", type: "token", name: "Nullmask", symbol: "$NULL", subtitle: "$8.14M MC", avatar: "🎭", price: "$0.028718", change: "4.85%", positive: true, chart: true };
-const recent: SearchItem[] = [stonk, rasmr, cat, rasmr];
-const users: SearchItem[] = [rasmr, rasmr, rasmr, rasmr];
-const tokens: SearchItem[] = [stonk, cat, nullmask];
-const allItems: SearchItem[] = [stonk, rasmr, cat, nullmask];
+function toItem(token: StonkFunToken): SearchItem {
+  const change = token.market?.priceChange24h ?? 0;
+  return {
+    id: token.mint,
+    name: token.name || token.symbol || truncateAddress(token.mint),
+    symbol: prettySymbol(token.symbol) || truncateAddress(token.mint, 4),
+    subtitle: formatMc(token.market?.marketCapUsd),
+    imageUrl: token.imageUrl || token.logoUrl,
+    price: formatPrice(token.market?.priceUsd),
+    change,
+    positive: change >= 0,
+    chart: true,
+  };
+}
+
+function fromRecent(item: SearchRecent): SearchItem {
+  const change = item.change ?? 0;
+  return {
+    id: item.mint,
+    name: item.name,
+    symbol: prettySymbol(item.symbol) || item.symbol,
+    subtitle: formatMc(item.marketCapUsd),
+    imageUrl: item.imageUrl,
+    price: formatPrice(item.priceUsd),
+    change,
+    positive: change >= 0,
+    chart: true,
+  };
+}
 
 function Sparkline({ positive }: { positive: boolean }) {
   const points = positive
@@ -65,10 +95,15 @@ function Sparkline({ positive }: { positive: boolean }) {
 }
 
 function ResultRow({ item, onPress }: { item: SearchItem; onPress: () => void }) {
+  const initial = item.name.slice(0, 1).toUpperCase();
   return (
     <Pressable style={styles.row} onPress={onPress} accessibilityRole="button" accessibilityLabel={`View ${item.name}`}>
-      <View style={[styles.avatar, item.type === "user" && styles.userAvatar]}>
-        <Text style={styles.avatarText}>{item.avatar}</Text>
+      <View style={styles.avatar}>
+        {item.imageUrl ? (
+          <TokenImage uri={item.imageUrl} style={styles.avatarImage} />
+        ) : (
+          <Text style={styles.avatarText}>{initial}</Text>
+        )}
       </View>
       <View style={styles.info}>
         <View style={styles.nameLine}>
@@ -81,7 +116,7 @@ function ResultRow({ item, onPress }: { item: SearchItem; onPress: () => void })
       <View style={styles.priceBlock}>
         <Text style={styles.price}>{item.price}</Text>
         <Text style={[styles.change, { color: item.positive ? GREEN : RED }]}>
-          {item.positive ? "▲" : "▼"} {item.change}
+          {item.positive ? "▲" : "▼"} {Math.abs(item.change).toFixed(2)}%
         </Text>
       </View>
     </Pressable>
@@ -92,8 +127,12 @@ export default function SearchScreen() {
   const router = useRouter();
   const navScroll = useNavScroll();
   const [query, setQuery] = useState("");
-  const keyboardOffset = useRef(new Animated.Value(0)).current;
+  const debounced = useDebouncedValue(query);
+  const [keyboardOffset] = useState(() => new Animated.Value(0));
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const { data: results, loading } = useSearchTokens(debounced);
+  const { data: trending } = useTrendingTokens(8);
+  const { recents, remember } = useSearchRecents();
 
   useEffect(() => {
     const show = Keyboard.addListener(
@@ -122,22 +161,25 @@ export default function SearchScreen() {
     return () => { show.remove(); hide.remove(); };
   }, [keyboardOffset]);
 
-  const filtered = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) return [];
-    return allItems.filter((item) => [item.name, item.symbol, item.subtitle].some((value) => value.toLowerCase().includes(term)));
-  }, [query]);
-
   function openItem(item: SearchItem) {
     Keyboard.dismiss();
-    if (item.type === "token") {
-      Alert.alert("Demo token", `${item.name} is sample search data. Live token details are not connected yet.`);
-    } else {
-      Alert.alert("Demo profile", `${item.name} is a sample user profile.`);
-    }
+    void remember({
+      mint: item.id,
+      name: item.name,
+      symbol: item.symbol,
+      imageUrl: item.imageUrl,
+      priceUsd: Number(item.price.replace(/[^0-9.]/g, "")) || undefined,
+      marketCapUsd: undefined,
+      change: item.change,
+    });
+    router.push({ pathname: "/dex/[tokenId]", params: { tokenId: item.id } });
   }
 
   const searching = query.trim().length > 0;
+  const filtered = (results ?? []).map(toItem);
+  const recentItems = recents.map(fromRecent);
+  const tokenItems = (trending ?? []).map(toItem);
+
   return (
     <View style={styles.screen}>
       <ScrollView
@@ -154,26 +196,29 @@ export default function SearchScreen() {
         {searching ? (
           <>
             <Text style={styles.sectionTitle}>Search Results</Text>
-            <Text style={styles.resultCount}>{filtered.length} demo {filtered.length === 1 ? "result" : "results"}</Text>
+            <Text style={styles.resultCount}>{loading ? "Searching…" : `${filtered.length} ${filtered.length === 1 ? "result" : "results"}`}</Text>
             {filtered.length ? filtered.map((item) => <ResultRow key={item.id} item={item} onPress={() => openItem(item)} />) : (
+              !loading ? (
               <View style={styles.empty}>
                 <Search size={28} color="#777" />
                 <Text style={styles.emptyTitle}>No matches found</Text>
-                <Text style={styles.emptySubtitle}>Try a token name, symbol, or username.</Text>
+                <Text style={styles.emptySubtitle}>Try a token name, symbol, or mint address.</Text>
               </View>
+              ) : null
             )}
           </>
         ) : (
           <>
-            <Text style={styles.sectionTitle}>Recent</Text>
-            {recent.map((item, index) => <ResultRow key={`recent-${index}`} item={item} onPress={() => openItem(item)} />)}
-            <Text style={[styles.sectionTitle, styles.sectionGap]}>Users</Text>
-            {users.map((item, index) => <ResultRow key={`user-${index}`} item={item} onPress={() => openItem(item)} />)}
-            <Text style={[styles.sectionTitle, styles.sectionGap]}>Tokens</Text>
-            {tokens.map((item, index) => <ResultRow key={`token-${index}`} item={item} onPress={() => openItem(item)} />)}
+            {recentItems.length ? (
+              <>
+                <Text style={styles.sectionTitle}>Recent</Text>
+                {recentItems.map((item, index) => <ResultRow key={`recent-${item.id}-${index}`} item={item} onPress={() => openItem(item)} />)}
+              </>
+            ) : null}
+            <Text style={[styles.sectionTitle, recentItems.length ? styles.sectionGap : undefined]}>Tokens</Text>
+            {tokenItems.map((item) => <ResultRow key={`token-${item.id}`} item={item} onPress={() => openItem(item)} />)}
           </>
         )}
-        <Text style={styles.demoNote}>Demo data • Prices, accounts, and changes are illustrative.</Text>
       </ScrollView>
 
       <Animated.View
@@ -211,9 +256,9 @@ const styles = StyleSheet.create({
   sectionTitle: { color: "#FFFFFF", fontSize: 15, fontWeight: "500", marginBottom: 10 },
   sectionGap: { marginTop: 25 },
   row: { flexDirection: "row", alignItems: "center", backgroundColor: "#121212", borderRadius: 6, minHeight: 72, marginBottom: 5, paddingHorizontal: 9, gap: 9 },
-  avatar: { width: 45, height: 45, borderRadius: 24, backgroundColor: "#13292A", alignItems: "center", justifyContent: "center" },
-  userAvatar: { backgroundColor: "#263443" },
-  avatarText: { fontSize: 27 },
+  avatar: { width: 45, height: 45, borderRadius: 24, backgroundColor: "#13292A", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  avatarImage: { width: "100%", height: "100%", borderRadius: 24 },
+  avatarText: { fontSize: 18, color: "#FFFFFF", fontWeight: "700" },
   info: { flex: 1, minWidth: 0 },
   nameLine: { flexDirection: "row", alignItems: "center", gap: 4 },
   name: { color: "#FFFFFF", fontSize: 12, fontWeight: "700", flexShrink: 1 },

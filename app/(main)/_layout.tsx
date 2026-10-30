@@ -68,6 +68,9 @@ function MainContent() {
 
         {/* Tracer */}
         <Stack.Screen name="tracer/index" />
+        <Stack.Screen name="tracer/[address]" />
+        <Stack.Screen name="tracer/top-10-volume" />
+        <Stack.Screen name="tracer/gtaVI" />
 
         {/* Wallet */}
         <Stack.Screen name="wallet/index" />

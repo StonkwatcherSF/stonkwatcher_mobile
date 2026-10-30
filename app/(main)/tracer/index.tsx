@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import {
   ScrollView,
   View,
@@ -8,121 +8,24 @@ import {
   Pressable,
   StyleSheet,
   Alert,
-  Image,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { List } from "lucide-react-native";
 import { useNavScroll } from "../../../components/NavAnimationContext";
-
-const PLACEHOLDER = require("../../../assets/images/placeholder.png");
+import TokenImage from "../../../components/TokenImage";
+import { useVolumeLeaders } from "../../../hooks/useVolumeLeaders";
+import { useNewLaunches } from "../../../hooks/useNewLaunches";
+import { compactUsd, formatAge, formatCount, formatMc, prettySymbol } from "../../../lib/format";
+import { isSolanaAddress, truncateAddress } from "../../../lib/solana";
+import type { VolumeLeaderWindow } from "../../../lib/types";
 
 type Period = "24 Hours" | "1 Week";
 
-type Token = {
-  id: string;
-  name: string;
-  symbol: string;
-  marketCap: string;
-  volume: string;
-  trades: string;
-  age?: string;
-  badge?: string;
-};
-
-const volumeTokens: Token[] = [
-  {
-    id: "spoodermen",
-    name: "spoodermen",
-    symbol: "$SPOODERMEN",
-    marketCap: "$99K MC",
-    volume: "$8.40",
-    trades: "8",
-  },
-  {
-    id: "hamstr",
-    name: "haMSTR",
-    symbol: "$haMSTR",
-    marketCap: "$3.8K MC",
-    volume: "$133K",
-    trades: "54",
-  },
-  {
-    id: "trump",
-    name: "Trump Endorsed Coin",
-    symbol: "$TEC",
-    marketCap: "$2.4K MC",
-    volume: "$161K",
-    trades: "81",
-  },
-  {
-    id: "four",
-    name: "Unknown Token",
-    symbol: "$TOKEN",
-    marketCap: "$28K MC",
-    volume: "$797K",
-    trades: "2,212",
-  },
-  {
-    id: "mememan",
-    name: "Meme Man",
-    symbol: "$MEMEMAN",
-    marketCap: "$203.78K MC",
-    volume: "$724K",
-    trades: "702",
-  },
-];
-
-const newTokens: Token[] = [
-  {
-    id: "bankroll",
-    name: "Bankroll",
-    symbol: "$BANKROLL",
-    marketCap: "$15.39 MC",
-    volume: "",
-    trades: "",
-    age: "2 minutes ago",
-    badge: "USDC",
-  },
-  {
-    id: "gtaVI",
-    name: "GTA VI",
-    symbol: "$GTA6",
-    marketCap: "$15.39 MC",
-    volume: "",
-    trades: "",
-    age: "4 minutes ago",
-    badge: "TTWO",
-  },
-  {
-    id: "inj",
-    name: "New Launch",
-    symbol: "$INJ",
-    marketCap: "$1.53 MC",
-    volume: "",
-    trades: "",
-    age: "16 minutes ago",
-    badge: "INJ",
-  },
-  {
-    id: "new4",
-    name: "New Token",
-    symbol: "$NEW",
-    marketCap: "$9.21K MC",
-    volume: "",
-    trades: "",
-    age: "22 minutes ago",
-    badge: "SOL",
-  },
-];
-
-function TokenAvatar() {
+function TokenAvatar({ uri }: { uri?: string | null }) {
   return (
     <View style={styles.tokenIcon}>
-      <Image
-        source={PLACEHOLDER}
-        style={styles.tokenImage}
-        resizeMode="cover"
-      />
+      <TokenImage uri={uri} style={styles.tokenImage} />
     </View>
   );
 }
@@ -133,22 +36,27 @@ export default function TracerScreen() {
 
   const [address, setAddress] = useState("");
   const [period, setPeriod] = useState<Period>("24 Hours");
+  const window: VolumeLeaderWindow = period === "1 Week" ? "1w" : "24h";
+  const { data: volumeRows, loading: volumeLoading } = useVolumeLeaders(window);
+  const { data: launches, loading: launchesLoading } = useNewLaunches();
+  const preview = (volumeRows ?? []).slice(0, 4);
+  const newTokens = (launches ?? []).slice(0, 4);
 
-  const preview = useMemo(
-    () => volumeTokens.slice(0, 4),
-    []
-  );
-
-  function openToken(id: string) {
-    if (id === "gtaVI") {
-      router.push("/tracer/gtaVI" as any);
+  function openTrace(target: string) {
+    if (!isSolanaAddress(target)) {
+      Alert.alert("Invalid address", "Enter a valid Solana wallet or token address.");
       return;
     }
+    router.push({ pathname: "/tracer/[address]", params: { address: target } });
+  }
 
-    Alert.alert(
-      "Demo token",
-      "Token analysis for this demo token is not connected yet."
-    );
+  function onTrace() {
+    const target = address.trim();
+    if (!target) {
+      Alert.alert("Trace", "Enter a wallet or token address first.");
+      return;
+    }
+    openTrace(target);
   }
 
   return (
@@ -183,14 +91,7 @@ export default function TracerScreen() {
 
           <Pressable
             style={styles.traceButton}
-            onPress={() =>
-              Alert.alert(
-                "Demo Tracer",
-                address.trim()
-                  ? "Live address tracing is not connected yet."
-                  : "Enter a wallet or token address first."
-              )
-            }
+            onPress={onTrace}
           >
             <Text style={styles.traceButtonText}>
               Trace
@@ -251,43 +152,46 @@ export default function TracerScreen() {
         </View>
 
         <View style={styles.list}>
+          {volumeLoading && !preview.length ? (
+            <ActivityIndicator color="#C6E900" style={{ marginVertical: 18 }} />
+          ) : null}
           {preview.map((token, index) => (
             <Pressable
-              key={token.id}
+              key={token.mint}
               style={styles.tokenRow}
-              onPress={() => openToken(token.id)}
+              onPress={() => openTrace(token.mint)}
             >
               <View style={styles.rank}>
                 <Text style={styles.rankText}>
-                  {index + 1}
+                  {token.rank || index + 1}
                 </Text>
               </View>
 
-              <TokenAvatar />
+              <TokenAvatar uri={token.imageUrl} />
 
               <View style={styles.tokenInfo}>
                 <Text
                   numberOfLines={1}
                   style={styles.tokenName}
                 >
-                  {token.name}{" "}
+                  {token.name || truncateAddress(token.mint)}{" "}
                   <Text style={styles.symbol}>
-                    {token.symbol}
+                    {prettySymbol(token.symbol)}
                   </Text>
                 </Text>
 
                 <Text style={styles.subText}>
-                  {token.marketCap}
+                  {formatMc(token.marketCapUsd)}
                 </Text>
               </View>
 
               <View style={styles.rightInfo}>
                 <Text style={styles.rightText}>
-                  24h {token.volume}
+                  {period === "1 Week" ? "7d" : "24h"} {compactUsd(token.volume24hUsd)}
                 </Text>
 
                 <Text style={styles.subText}>
-                  ♧ {token.trades}
+                  ♧ {formatCount(token.newHolders)}
                 </Text>
               </View>
             </Pressable>
@@ -304,47 +208,45 @@ export default function TracerScreen() {
         </Text>
 
         <View style={styles.list}>
-          {newTokens.slice(0, 4).map((token) => (
+          {launchesLoading && !newTokens.length ? (
+            <ActivityIndicator color="#C6E900" style={{ marginVertical: 18 }} />
+          ) : null}
+          {newTokens.map((token) => (
             <Pressable
-              key={token.id}
+              key={token.mint}
               style={styles.tokenRow}
-              onPress={() => openToken(token.id)}
+              onPress={() => openTrace(token.mint)}
             >
-              <TokenAvatar />
+              <TokenAvatar uri={token.imageUrl || token.logoUrl} />
 
               <View style={styles.tokenInfo}>
                 <Text
                   numberOfLines={1}
                   style={styles.tokenName}
                 >
-                  {token.name}{" "}
+                  {token.name || truncateAddress(token.mint)}{" "}
                   <Text style={styles.symbol}>
-                    {token.symbol}
+                    {prettySymbol(token.symbol)}
                   </Text>
                 </Text>
 
                 <Text style={styles.subText}>
-                  {token.age}
+                  {formatAge(token.createdAt)}
                 </Text>
               </View>
 
               <View style={styles.rightInfo}>
                 <Text style={styles.tokenBadge}>
-                  {token.badge}
+                  {token.quote?.symbol || "SOL"}
                 </Text>
 
                 <Text style={styles.subText}>
-                  {token.marketCap}
+                  {formatMc(token.market?.marketCapUsd)}
                 </Text>
               </View>
             </Pressable>
           ))}
         </View>
-
-        <Text style={styles.demoNote}>
-          Demo preview • Token values and rankings are
-          illustrative.
-        </Text>
       </ScrollView>
     </View>
   );
