@@ -36,7 +36,7 @@ import {
   riskLabel,
   signedPoints,
 } from "../../../lib/format";
-import { isSolanaAddress, truncateAddress } from "../../../lib/solana";
+import { isSolanaAddress, readRouteParam, truncateAddress } from "../../../lib/solana";
 import { shareExternally } from "../../../utils/share";
 import type { BubbleMapData, BubbleMapNode, TracerPayload } from "../../../lib/types";
 
@@ -181,8 +181,8 @@ function analysisRows(payload: TracerPayload | null) {
 
 export default function TracerAnalysisScreen() {
   const router = useRouter();
-  const { address: rawAddress } = useLocalSearchParams<{ address?: string }>();
-  const address = typeof rawAddress === "string" ? rawAddress : "";
+  const { address: rawAddress } = useLocalSearchParams<{ address?: string | string[] }>();
+  const address = readRouteParam(rawAddress);
   const { width } = useWindowDimensions();
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [marketOpen, setMarketOpen] = useState(true);

@@ -1,11 +1,14 @@
 import { ApiError, apiGet, apiPost } from "./api";
-import { fetchPublicOhlcv, fetchStonkFunTokens } from "./public-data";
+import { fetchPublicOhlcv, fetchStonkFunTokens, normalizeToken } from "./public-data";
+import { tokenMint } from "./solana";
 import type {
   AnalyzeResponse,
   BubbleMapResponse,
   IntelResponse,
   MarketQuote,
   OhlcvResponse,
+  QuoteAsset,
+  QuoteCatalog,
   TokenInfoPayload,
   TokensPage,
   TracerPayload,
@@ -26,18 +29,36 @@ export async function fetchTokens(params: {
   raw?: boolean;
   fast?: boolean;
 }) {
+  const query = {
+    sort: params.sort ?? "volume",
+    q: params.q,
+    quoteMint: params.quoteMint,
+    pageSize: params.pageSize ?? 50,
+    raw: params.raw === false ? undefined : 1,
+    fast: params.fast === false ? undefined : 1,
+  };
   try {
-    return await apiGet<TokensPage>("/api/tokens", {
-      sort: params.sort ?? "volume",
-      q: params.q,
-      quoteMint: params.quoteMint,
-      pageSize: params.pageSize ?? 50,
-      raw: params.raw ? 1 : undefined,
-      fast: params.fast ? 1 : undefined,
-    });
+    const page = await apiGet<TokensPage>("/api/tokens", query);
+    const tokens = (page.tokens ?? [])
+      .map((row) => normalizeToken(row) ?? (tokenMint(row) ? row : null))
+      .filter((token): token is NonNullable<typeof token> => Boolean(token));
+    if (tokens.length > 0) return { ...page, tokens };
   } catch (error) {
     if (!isUnauthorized(error)) throw error;
-    return fetchStonkFunTokens(params);
+  }
+  try {
+    return await fetchStonkFunTokens(params);
+  } catch {
+    return { tokens: [], source: "empty" };
+  }
+}
+
+export async function fetchQuoteCatalog(q?: string): Promise<QuoteAsset[]> {
+  try {
+    const body = await apiGet<QuoteCatalog>("/api/v1/quotes/all", q ? { q } : undefined);
+    return body.quotes ?? [];
+  } catch {
+    return [];
   }
 }
 

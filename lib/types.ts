@@ -1,5 +1,21 @@
+export type QuoteAsset = {
+  key?: string;
+  symbol: string;
+  name?: string;
+  mint?: string;
+  logoUrl?: string;
+  count?: number;
+};
+
+export type QuoteCatalog = {
+  quotes?: QuoteAsset[];
+  total?: number;
+};
+
 export type StonkFunToken = {
   mint: string;
+  address?: string;
+  id?: string;
   name?: string;
   symbol?: string;
   imageUrl?: string;

@@ -9,6 +9,7 @@ import {
   StatusBar,
   Image,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -21,9 +22,11 @@ import {
 import { useNavScroll } from "../../components/NavAnimationContext";
 import TokenImage from "../../components/TokenImage";
 import { useRouter } from "expo-router";
-import { QUOTE_FILTERS, type QuoteFilter } from "../../lib/config";
+import { ALL_QUOTES, FALLBACK_QUOTES, type SelectedQuote } from "../../lib/config";
 import { formatMc, formatPrice } from "../../lib/format";
-import { truncateAddress } from "../../lib/solana";
+import { tokenMint, truncateAddress } from "../../lib/solana";
+import { dexHref } from "../../lib/nav";
+import { useQuoteCatalog } from "../../hooks/useQuotes";
 import { useTokens } from "../../hooks/useTokens";
 import type { StonkFunToken } from "../../lib/types";
 
@@ -38,19 +41,26 @@ export default function TokensScreen() {
   const [activeTab, setActiveTab] =
     useState<Tab>("Trending");
 
-  const [quote, setQuote] = useState<QuoteFilter>("All Quotes");
+  const [quote, setQuote] = useState<SelectedQuote>(ALL_QUOTES);
+  const [quoteQuery, setQuoteQuery] = useState("");
   const [showQuotes, setShowQuotes] = useState(false);
+  const { data: quoteCatalog } = useQuoteCatalog();
   const { data: tokens, loading, error } = useTokens(activeTab, quote);
+  const quoteOptions = quoteCatalog?.length ? quoteCatalog : FALLBACK_QUOTES;
+  const visibleQuotes = quoteOptions.filter((option) => {
+    const q = quoteQuery.trim().toLowerCase();
+    if (!q) return true;
+    return option.symbol.toLowerCase().includes(q);
+  });
 
   const openDeposit = () => {
     router.push("/settings/deposit" as any);
   };
 
   const openToken = (token: StonkFunToken) => {
-    router.push({
-      pathname: "/dex/[tokenId]",
-      params: { tokenId: token.mint },
-    });
+    const mint = tokenMint(token);
+    if (!mint) return;
+    router.push(dexHref(mint));
   };
 
   return (
@@ -128,9 +138,9 @@ export default function TokensScreen() {
           onPress={() => setShowQuotes(!showQuotes)}
         >
           <Text style={styles.quoteText}>
-            {quote === "All Quotes"
+            {quote.symbol === "All Quotes"
               ? "Select Quote"
-              : quote}
+              : quote.symbol}
           </Text>
 
           <Text style={styles.quoteArrow}>
@@ -140,22 +150,32 @@ export default function TokensScreen() {
 
         {showQuotes && (
           <View style={styles.quoteMenu}>
-            {QUOTE_FILTERS.map(
-              (option) => (
+            <TextInput
+              value={quoteQuery}
+              onChangeText={setQuoteQuery}
+              placeholder="Search quotes"
+              placeholderTextColor="#8A8A8A"
+              autoCapitalize="characters"
+              autoCorrect={false}
+              style={styles.quoteSearch}
+            />
+            <ScrollView style={styles.quoteList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+              {visibleQuotes.map((option) => (
                 <Pressable
-                  key={option}
+                  key={option.mint || option.symbol}
                   style={styles.quoteOption}
                   onPress={() => {
                     setQuote(option);
+                    setQuoteQuery("");
                     setShowQuotes(false);
                   }}
                 >
                   <Text style={styles.quoteText}>
-                    {option}
+                    {option.symbol}
                   </Text>
                 </Pressable>
-              )
-            )}
+              ))}
+            </ScrollView>
           </View>
         )}
 
@@ -181,9 +201,10 @@ export default function TokensScreen() {
           ) : null}
           {(tokens ?? []).map((token) => {
             const change = token.market?.priceChange24h ?? 0;
+            const mint = tokenMint(token);
             return (
             <Pressable
-              key={token.mint}
+              key={mint}
               style={styles.tokenCard}
               onPress={() => openToken(token)}
               accessibilityRole="button"
@@ -204,7 +225,7 @@ export default function TokensScreen() {
                     style={styles.tokenName}
                     numberOfLines={1}
                   >
-                    {token.name || token.symbol || truncateAddress(token.mint)}
+                    {token.name || token.symbol || truncateAddress(mint)}
                   </Text>
 
                   <BadgeCheck
@@ -367,6 +388,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#262D0C",
     borderRadius: 5,
     marginBottom: 8,
+    overflow: "hidden",
+  },
+
+  quoteSearch: {
+    color: "#DADADA",
+    fontSize: 13,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#404A22",
+  },
+
+  quoteList: {
+    maxHeight: 280,
   },
 
   quoteOption: {

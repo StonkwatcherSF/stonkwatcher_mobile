@@ -1,13 +1,61 @@
 import { STONKFUN_API_URL } from "./config";
+import { tokenMint } from "./solana";
 import type { OhlcvCandle, StonkFunToken, TokensPage } from "./types";
 
 type StonkFunEnvelope = {
   data?: {
-    tokens?: StonkFunToken[];
+    tokens?: unknown[];
     pagination?: TokensPage["pagination"];
   };
-  tokens?: StonkFunToken[];
+  tokens?: unknown[];
 };
+
+function asText(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function asRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+export function normalizeToken(raw: unknown): StonkFunToken | null {
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as Record<string, unknown>;
+  const quote = asRecord(row.quote);
+  const market = asRecord(row.market);
+  const mint = tokenMint({
+    mint: asText(row.mint),
+    address: asText(row.address),
+    id: asText(row.id),
+  });
+  if (!mint) return null;
+  return {
+    mint,
+    name: asText(row.name),
+    symbol: asText(row.symbol),
+    imageUrl: asText(row.imageUrl) ?? asText(row.logoUrl) ?? asText(row.image),
+    logoUrl: asText(row.logoUrl) ?? asText(row.imageUrl),
+    creator: asText(row.creator),
+    status: asText(row.status),
+    createdAt: asText(row.createdAt),
+    graduatedAt: asText(row.graduatedAt),
+    quote: {
+      mint: asText(quote.mint) ?? asText(row.quoteMint),
+      symbol: asText(quote.symbol) ?? asText(row.quoteSymbol),
+      name: asText(quote.name),
+      logoUrl: asText(quote.logoUrl),
+    },
+    market: {
+      priceUsd: Number(market.priceUsd ?? row.priceUsd) || undefined,
+      marketCapUsd: Number(market.marketCapUsd ?? market.marketCap ?? row.marketCapUsd) || undefined,
+      volume24hUsd: Number(market.volume24hUsd ?? row.volume24hUsd) || undefined,
+      priceChange24h: Number(market.priceChange24h ?? row.priceChange24h) || undefined,
+      liquidityUsd: Number(market.liquidityUsd) || undefined,
+    },
+  };
+}
 
 export async function fetchStonkFunTokens(params: {
   sort?: "marketCap" | "newest" | "volume";
@@ -23,7 +71,9 @@ export async function fetchStonkFunTokens(params: {
   const response = await fetch(url.toString(), { headers: { Accept: "application/json" } });
   if (!response.ok) throw new Error(`StonkFun tokens failed (${response.status})`);
   const body = (await response.json()) as StonkFunEnvelope;
-  const tokens = body.data?.tokens ?? body.tokens ?? [];
+  const tokens = (body.data?.tokens ?? body.tokens ?? [])
+    .map(normalizeToken)
+    .filter((token): token is StonkFunToken => Boolean(token));
   return {
     tokens,
     pagination: body.data?.pagination,

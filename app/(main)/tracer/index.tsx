@@ -17,6 +17,7 @@ import TokenImage from "../../../components/TokenImage";
 import { useVolumeLeaders } from "../../../hooks/useVolumeLeaders";
 import { useNewLaunches } from "../../../hooks/useNewLaunches";
 import { compactUsd, formatAge, formatCount, formatMc, prettySymbol } from "../../../lib/format";
+import { tracerHref } from "../../../lib/nav";
 import { isSolanaAddress, truncateAddress } from "../../../lib/solana";
 import type { VolumeLeaderWindow } from "../../../lib/types";
 
@@ -47,7 +48,7 @@ export default function TracerScreen() {
       Alert.alert("Invalid address", "Enter a valid Solana wallet or token address.");
       return;
     }
-    router.push({ pathname: "/tracer/[address]", params: { address: target } });
+    router.push(tracerHref(target));
   }
 
   function onTrace() {

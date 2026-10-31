@@ -12,6 +12,7 @@ import { ArrowLeft } from "lucide-react-native";
 import TokenImage from "../../../components/TokenImage";
 import { useVolumeLeaders } from "../../../hooks/useVolumeLeaders";
 import { compactUsd, formatCount, formatMc, prettySymbol } from "../../../lib/format";
+import { tracerHref } from "../../../lib/nav";
 import { truncateAddress } from "../../../lib/solana";
 import type { VolumeLeaderWindow } from "../../../lib/types";
 
@@ -68,7 +69,7 @@ export default function Top10VolumeScreen() {
                 key={token.mint}
                 style={styles.tokenRow}
                 onPress={() =>
-                  router.push({ pathname: "/tracer/[address]", params: { address: token.mint } })
+                  router.push(tracerHref(token.mint))
                 }
               >
                 <View style={styles.rank}>

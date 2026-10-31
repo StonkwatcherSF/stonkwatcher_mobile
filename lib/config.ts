@@ -9,13 +9,17 @@ export const PARTNER_API_KEY = process.env.EXPO_PUBLIC_PARTNER_API_KEY || "";
 export const WSOL_MINT = "So11111111111111111111111111111111111111112";
 export const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
-export const QUOTE_FILTERS = ["All Quotes", "SOL", "USDC"] as const;
-export type QuoteFilter = (typeof QUOTE_FILTERS)[number];
+export const SEARCH_RECENTS_KEY = "stonkwatcher.search.recents";
 
-export const QUOTE_MINTS: Record<QuoteFilter, string | undefined> = {
-  "All Quotes": undefined,
-  SOL: WSOL_MINT,
-  USDC: USDC_MINT,
+export type SelectedQuote = {
+  symbol: string;
+  mint?: string;
 };
 
-export const SEARCH_RECENTS_KEY = "stonkwatcher.search.recents";
+export const ALL_QUOTES: SelectedQuote = { symbol: "All Quotes" };
+
+export const FALLBACK_QUOTES: SelectedQuote[] = [
+  ALL_QUOTES,
+  { symbol: "SOL", mint: WSOL_MINT },
+  { symbol: "USDC", mint: USDC_MINT },
+];

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SEARCH_RECENTS_KEY } from "../lib/config";
 import { fetchTokens } from "../lib/stonk";
+import { tokenMint } from "../lib/solana";
 import type { StonkFunToken } from "../lib/types";
 import { useAsync } from "./useAsync";
 
@@ -32,7 +33,7 @@ export function useSearchTokens(query: string) {
   return useAsync<StonkFunToken[]>(
     async () => {
       const page = await fetchTokens({ q, raw: true, fast: true, pageSize: 20, sort: "volume" });
-      return page.tokens ?? [];
+      return (page.tokens ?? []).filter((token) => tokenMint(token));
     },
     [q],
     q.length > 0,
@@ -43,7 +44,7 @@ export function useTrendingTokens(limit = 8) {
   return useAsync<StonkFunToken[]>(
     async () => {
       const page = await fetchTokens({ sort: "volume", pageSize: limit });
-      return (page.tokens ?? []).slice(0, limit);
+      return (page.tokens ?? []).filter((token) => tokenMint(token)).slice(0, limit);
     },
     [limit],
   );

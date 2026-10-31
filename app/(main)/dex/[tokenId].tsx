@@ -29,7 +29,7 @@ import {
   formatTxTime,
   signedUsd,
 } from "../../../lib/format";
-import { isSolanaAddress, truncateAddress } from "../../../lib/solana";
+import { isSolanaAddress, readRouteParam, truncateAddress } from "../../../lib/solana";
 import type { IntelTransfer, OhlcvCandle, TokenInfoPayload } from "../../../lib/types";
 
 const PLACEHOLDER = require("../../../assets/images/placeholder.png");
@@ -159,8 +159,8 @@ export default function DexTokenScreen() {
   const positionShotRef = useRef<React.ElementRef<typeof ViewShot>>(null);
   const [sharingPosition, setSharingPosition] = useState(false);
   const [historyVisible, setHistoryVisible] = useState(false);
-  const { tokenId } = useLocalSearchParams<{ tokenId?: string }>();
-  const mint = typeof tokenId === "string" ? tokenId : "";
+  const { tokenId } = useLocalSearchParams<{ tokenId?: string | string[] }>();
+  const mint = readRouteParam(tokenId);
   const { width } = useWindowDimensions();
   const [period, setPeriod] = useState<Period>("1m");
   const [infoTab, setInfoTab] = useState<InfoTab>("Transactions");

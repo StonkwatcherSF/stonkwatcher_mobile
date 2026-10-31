@@ -22,7 +22,8 @@ import {
   type SearchRecent,
 } from "../../../hooks/useSearchTokens";
 import { formatMc, formatPrice, prettySymbol } from "../../../lib/format";
-import { truncateAddress } from "../../../lib/solana";
+import { dexHref } from "../../../lib/nav";
+import { tokenMint, truncateAddress } from "../../../lib/solana";
 import type { StonkFunToken } from "../../../lib/types";
 
 const LIME = "#C6E900";
@@ -45,10 +46,11 @@ type SearchItem = {
 
 function toItem(token: StonkFunToken): SearchItem {
   const change = token.market?.priceChange24h ?? 0;
+  const mint = tokenMint(token);
   return {
-    id: token.mint,
-    name: token.name || token.symbol || truncateAddress(token.mint),
-    symbol: prettySymbol(token.symbol) || truncateAddress(token.mint, 4),
+    id: mint,
+    name: token.name || token.symbol || truncateAddress(mint),
+    symbol: prettySymbol(token.symbol) || truncateAddress(mint, 4),
     subtitle: formatMc(token.market?.marketCapUsd),
     imageUrl: token.imageUrl || token.logoUrl,
     price: formatPrice(token.market?.priceUsd),
@@ -172,7 +174,8 @@ export default function SearchScreen() {
       marketCapUsd: undefined,
       change: item.change,
     });
-    router.push({ pathname: "/dex/[tokenId]", params: { tokenId: item.id } });
+    if (!item.id) return;
+    router.push(dexHref(item.id));
   }
 
   const searching = query.trim().length > 0;
