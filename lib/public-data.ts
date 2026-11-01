@@ -134,14 +134,17 @@ export async function fetchStonkFunTokens(params: {
   };
 }
 
-const TF_MAP: Record<string, { timeframe: string; aggregate: number }> = {
-  "1m": { timeframe: "minute", aggregate: 1 },
-  "5m": { timeframe: "minute", aggregate: 5 },
-  "15m": { timeframe: "minute", aggregate: 15 },
-  "1h": { timeframe: "hour", aggregate: 1 },
-  "4h": { timeframe: "hour", aggregate: 4 },
-  "1d": { timeframe: "day", aggregate: 1 },
+const TF_MAP: Record<string, { timeframe: string; aggregate: number; step: number }> = {
+  "1m": { timeframe: "minute", aggregate: 1, step: 60 },
+  "5m": { timeframe: "minute", aggregate: 5, step: 300 },
+  "15m": { timeframe: "minute", aggregate: 15, step: 900 },
+  "1h": { timeframe: "hour", aggregate: 1, step: 3600 },
+  "4h": { timeframe: "hour", aggregate: 4, step: 14400 },
+  "1d": { timeframe: "day", aggregate: 1, step: 86400 },
 };
+
+const OHLCV_TTL_MS = 90_000;
+const ohlcvCache = new Map<string, { at: number; candles: OhlcvCandle[] }>();
 
 function formatGeckoCandles(raw: [number, number, number, number, number, number][]): OhlcvCandle[] {
   const rows: OhlcvCandle[] = [];
@@ -154,14 +157,30 @@ function formatGeckoCandles(raw: [number, number, number, number, number, number
     seen.add(time);
     rows.push({
       time,
-      open,
+      open: Number.isFinite(open) && open > 0 ? open : close,
       high: Math.max(Number(row[2]), open, close),
-      low: Math.min(Number(row[3]), open, close),
+      low: Math.min(Number(row[3]) || close, open, close),
       close,
       volume: Number(row[5]) || 0,
     });
   }
   return rows.sort((a, b) => a.time - b.time);
+}
+
+function closeToSpot(candles: OhlcvCandle[], spot?: number | null) {
+  if (candles.length < 2) return false;
+  if (!spot || spot <= 0) return true;
+  const recent = candles.slice(-12).map((row) => row.close).filter((close) => close > 0);
+  const mid = recent[Math.floor((recent.length - 1) / 2)] ?? 0;
+  if (!(mid > 0)) return false;
+  const ratio = mid / spot;
+  return ratio >= 0.55 && ratio <= 1.8;
+}
+
+function tradedRecently(candles: OhlcvCandle[]) {
+  const last = candles[candles.length - 1]?.time ?? 0;
+  if (!last) return false;
+  return Math.floor(Date.now() / 1000) - last <= 72 * 3600;
 }
 
 async function fetchGeckoPool(mint: string) {
@@ -171,28 +190,143 @@ async function fetchGeckoPool(mint: string) {
   );
   if (!poolsRes.ok) return null;
   const poolsBody = (await poolsRes.json()) as {
-    data?: { attributes?: { address?: string; reserve_in_usd?: string } }[];
+    data?: {
+      attributes?: { address?: string; reserve_in_usd?: string; volume_usd?: { h24?: string } };
+      relationships?: { base_token?: { data?: { id?: string } }; quote_token?: { data?: { id?: string } } };
+    }[];
   };
-  const rows = poolsBody.data ?? [];
-  const best = [...rows].sort(
-    (a, b) => Number(b.attributes?.reserve_in_usd ?? 0) - Number(a.attributes?.reserve_in_usd ?? 0),
-  )[0];
-  return best?.attributes?.address ?? null;
+  const tokenId = `solana_${mint}`;
+  const rows = [...(poolsBody.data ?? [])].sort((a, b) => {
+    const av = Number(a.attributes?.volume_usd?.h24) || Number(a.attributes?.reserve_in_usd) || 0;
+    const bv = Number(b.attributes?.volume_usd?.h24) || Number(b.attributes?.reserve_in_usd) || 0;
+    return bv - av;
+  });
+  const asBase = rows.find((row) => row.relationships?.base_token?.data?.id === tokenId);
+  const asQuote = rows.find((row) => row.relationships?.quote_token?.data?.id === tokenId);
+  const chosen = asBase ?? asQuote ?? rows[0];
+  const address = chosen?.attributes?.address;
+  if (!address) return null;
+  return { address, tokenIsBase: Boolean(asBase) || !asQuote };
 }
 
-export async function fetchPublicOhlcv(mint: string, tf: string): Promise<OhlcvCandle[]> {
-  const spec = TF_MAP[tf] ?? TF_MAP["5m"];
-  const pool = await fetchGeckoPool(mint);
-  if (!pool) return [];
+async function fetchGeckoPoolOhlcv(
+  pool: string,
+  spec: { timeframe: string; aggregate: number },
+  side: "base" | "quote",
+) {
   const ohlcvRes = await fetch(
-    `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pool}/ohlcv/${spec.timeframe}?aggregate=${spec.aggregate}&limit=100&currency=usd`,
+    `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pool}/ohlcv/${spec.timeframe}?aggregate=${spec.aggregate}&limit=1000&currency=usd&token=${side}`,
     { headers: { Accept: "application/json" } },
   );
-  if (!ohlcvRes.ok) return [];
+  if (!ohlcvRes.ok) return [] as OhlcvCandle[];
   const ohlcvBody = (await ohlcvRes.json()) as {
     data?: { attributes?: { ohlcv_list?: [number, number, number, number, number, number][] } };
   };
   return formatGeckoCandles(ohlcvBody.data?.attributes?.ohlcv_list ?? []);
+}
+
+async function fetchStonkFunPool(mint: string) {
+  const response = await fetch(`${STONKFUN_API_URL}/tokens/${mint}`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) return null;
+  const body = (await response.json()) as {
+    data?: { token?: { pool?: string; quote?: { mint?: string; symbol?: string } } };
+  };
+  const token = body.data?.token;
+  const pool = token?.pool;
+  if (!pool) return null;
+  return { pool, quoteMint: token?.quote?.mint, quoteSymbol: token?.quote?.symbol };
+}
+
+async function fetchQuoteSpotUsd(quoteMint?: string, quoteSymbol?: string) {
+  const symbol = (quoteSymbol || "").replace(/^\$/, "").toUpperCase();
+  if (symbol === "USDC" || symbol === "USDT" || symbol === "USD1" || symbol === "PYUSD") return 1;
+  if (!quoteMint) return null;
+  const token = await fetchDexscreenerToken(quoteMint);
+  return token?.market?.priceUsd && token.market.priceUsd > 0 ? token.market.priceUsd : null;
+}
+
+async function fetchLaunchKline(poolId: string, tf: string, quoteMint?: string, quoteSymbol?: string) {
+  const interval = tf === "1m" || tf === "15m" ? tf : "5m";
+  const response = await fetch(
+    `https://launch-history-v1.raydium.io/kline?poolId=${encodeURIComponent(poolId)}&interval=${interval}&limit=500`,
+    { headers: { Accept: "application/json" } },
+  );
+  if (!response.ok) return [] as OhlcvCandle[];
+  const body = (await response.json()) as {
+    data?: { rows?: { t?: number; o?: number; h?: number; l?: number; c?: number }[] };
+  };
+  const native = (body.data?.rows ?? [])
+    .map((row) => {
+      const time = Math.floor(Number(row.t) || 0);
+      const open = Number(row.o);
+      const close = Number(row.c);
+      if (!time || !Number.isFinite(close) || close <= 0) return null;
+      return {
+        time,
+        open: Number.isFinite(open) && open > 0 ? open : close,
+        high: Math.max(Number(row.h) || close, open, close),
+        low: Math.min(Number(row.l) || close, open, close),
+        close,
+        volume: 0,
+      } satisfies OhlcvCandle;
+    })
+    .filter((row): row is OhlcvCandle => Boolean(row))
+    .sort((a, b) => a.time - b.time);
+  if (!native.length) return [];
+  const quoteUsd = (await fetchQuoteSpotUsd(quoteMint, quoteSymbol)) ?? 1;
+  if (quoteUsd === 1) return native;
+  return native.map((row) => ({
+    ...row,
+    open: row.open * quoteUsd,
+    high: row.high * quoteUsd,
+    low: row.low * quoteUsd,
+    close: row.close * quoteUsd,
+  }));
+}
+
+export async function fetchPublicOhlcv(mint: string, tf: string, spotUsd?: number | null): Promise<OhlcvCandle[]> {
+  const spec = TF_MAP[tf] ?? TF_MAP["5m"];
+  const cacheKey = `${mint}:${tf}`;
+  const cached = ohlcvCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < OHLCV_TTL_MS && cached.candles.length >= 2) {
+    return cached.candles;
+  }
+
+  const [pool, dex] = await Promise.all([
+    fetchGeckoPool(mint),
+    spotUsd && spotUsd > 0 ? Promise.resolve(null) : fetchDexscreenerToken(mint).catch(() => null),
+  ]);
+  const spot = spotUsd && spotUsd > 0 ? spotUsd : dex?.market?.priceUsd ?? null;
+  let candles: OhlcvCandle[] = [];
+  if (pool) {
+    const preferred = pool.tokenIsBase ? "base" : "quote";
+    const first = await fetchGeckoPoolOhlcv(pool.address, spec, preferred);
+    if (closeToSpot(first, spot) && tradedRecently(first)) {
+      candles = first;
+    } else {
+      const other = await fetchGeckoPoolOhlcv(pool.address, spec, preferred === "base" ? "quote" : "base");
+      const firstOk = tradedRecently(first) && closeToSpot(first, spot);
+      const otherOk = tradedRecently(other) && closeToSpot(other, spot);
+      if (otherOk && (!firstOk || other.length > first.length)) candles = other;
+      else if (firstOk || (tradedRecently(first) && first.length >= 2)) candles = first;
+      else if (other.length >= 2) candles = other;
+    }
+  }
+
+  if (candles.length < 8) {
+    const launch = await fetchStonkFunPool(mint).catch(() => null);
+    if (launch?.pool) {
+      const kline = await fetchLaunchKline(launch.pool, tf, launch.quoteMint, launch.quoteSymbol).catch(() => []);
+      if (kline.length > candles.length && (closeToSpot(kline, spot) || !spot)) {
+        candles = kline;
+      }
+    }
+  }
+
+  if (candles.length >= 2) ohlcvCache.set(cacheKey, { at: Date.now(), candles });
+  return candles;
 }
 
 export async function fetchDexscreenerToken(mint: string): Promise<StonkFunToken | null> {
@@ -244,7 +378,7 @@ export async function fetchPublicTrades(mint: string, symbol?: string): Promise<
   const pool = await fetchGeckoPool(mint);
   if (!pool) return [];
   const tradesRes = await fetch(
-    `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pool}/trades?limit=30`,
+    `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pool.address}/trades?limit=30`,
     { headers: { Accept: "application/json" } },
   );
   if (!tradesRes.ok) return [];

@@ -71,6 +71,7 @@ export type OhlcvCandle = {
 export type OhlcvResponse = {
   candles?: OhlcvCandle[];
   price?: number | null;
+  source?: string;
   error?: string;
 };
 

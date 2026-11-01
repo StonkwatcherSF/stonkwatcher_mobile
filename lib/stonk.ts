@@ -83,16 +83,17 @@ export async function fetchTokenByMint(mint: string) {
   return mergeTokenMeta(board, dex);
 }
 
-export async function fetchOhlcv(mint: string, tf: string) {
+export async function fetchOhlcv(mint: string, tf: string, spotUsd?: number | null) {
   try {
     const body = await apiGet<OhlcvResponse>("/api/ohlcv", { tokenAddress: mint, tf });
-    if (body.candles?.length) return body;
+    const live = (body.candles?.length ?? 0) >= 8 && body.source !== "dexscreener";
+    if (live) return body;
   } catch (error) {
     if (!isUnauthorized(error) && !(error instanceof ApiError && error.status >= 500)) {
       /* still try the public candles */
     }
   }
-  return { candles: await fetchPublicOhlcv(mint, tf), source: "geckoterminal" };
+  return { candles: await fetchPublicOhlcv(mint, tf, spotUsd), source: "geckoterminal" };
 }
 
 export async function fetchIntel(mint: string, name?: string, symbol?: string) {

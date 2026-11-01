@@ -1,14 +1,14 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { View, Text, ScrollView, Pressable, StyleSheet, useWindowDimensions, Alert, Image, ActivityIndicator } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Line, Rect, Text as SvgLabel } from "react-native-svg";
 import { ArrowLeft, BadgeCheck, Copy, Send, SlidersHorizontal } from "lucide-react-native";
 import { COLORS, FONTS, GRADIENTS } from "../../../constants/theme";
 import TradeSheet from "../../../components/TradeSheet";
 import TradeConfirmation from "../../../components/TradeConfirmation";
 import TokenImage from "../../../components/TokenImage";
+import PriceChart from "../../../components/PriceChart";
 import { shareExternally } from "../../../utils/share";
 import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
@@ -18,7 +18,6 @@ import { useTokenMarket } from "../../../hooks/useTokenMarket";
 import { useOhlcv, type ChartPeriod } from "../../../hooks/useOhlcv";
 import { useTokenInfo, useTokenTrades } from "../../../hooks/useTokenInfo";
 import {
-  chartAxisLabel,
   compactUsd,
   formatAge,
   formatCount,
@@ -31,7 +30,7 @@ import {
   signedUsd,
 } from "../../../lib/format";
 import { isSolanaAddress, readRouteParam, truncateAddress } from "../../../lib/solana";
-import type { IntelTransfer, OhlcvCandle, TokenInfoPayload } from "../../../lib/types";
+import type { IntelTransfer, TokenInfoPayload } from "../../../lib/types";
 
 const PLACEHOLDER = require("../../../assets/images/placeholder.png");
 
@@ -112,64 +111,6 @@ function TokenInfoPanel({ info, loading }: { info: TokenInfoPayload | null; load
       )}
     </View>
   );
-}
-
-function PriceCandles({ width, candles }: { width: number; candles: OhlcvCandle[] }) {
-  const height = 255;
-  const right = 47;
-  const chartWidth = width - right;
-  const { bars, labels } = useMemo(() => {
-    const visible = candles.slice(-36);
-    if (!visible.length) {
-      return {
-        bars: [] as { open: number; close: number; high: number; low: number }[],
-        labels: ["—", "—", "—", "—", "—"],
-      };
-    }
-    const highs = visible.map((row) => row.high);
-    const lows = visible.map((row) => row.low);
-    const max = Math.max(...highs);
-    const min = Math.min(...lows);
-    const span = max - min || max * 0.04 || 1;
-    const pad = span * 0.08;
-    const top = max + pad;
-    const bottom = Math.max(0, min - pad);
-    const range = top - bottom || 1;
-    const norm = (price: number) => (top - price) / range;
-    return {
-      bars: visible.map((row) => ({
-        open: norm(row.open),
-        close: norm(row.close),
-        high: norm(row.high),
-        low: norm(row.low),
-      })),
-      labels: [0, 1, 2, 3, 4].map((step) => chartAxisLabel(top - (range * step) / 4)),
-    };
-  }, [candles]);
-  const y = (v: number) => v * height;
-  return (
-    <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      {Array.from({ length: 7 }, (_, i) => <Line key={`h${i}`} x1={0} x2={chartWidth} y1={i * 42 + 2} y2={i * 42 + 2} stroke="#27300E" strokeWidth={0.5} />)}
-      {Array.from({ length: 9 }, (_, i) => <Line key={`v${i}`} y1={0} y2={height} x1={i * chartWidth / 8} x2={i * chartWidth / 8} stroke="#27300E" strokeWidth={0.5} />)}
-      {bars.map((c, i) => {
-        const x = 5 + i * ((chartWidth - 12) / Math.max(bars.length, 1));
-        const rising = c.close <= c.open;
-        const color = rising ? COLORS.buy : COLORS.sell;
-        return <React.Fragment key={i}>
-          <Line x1={x + 3} x2={x + 3} y1={y(c.high)} y2={y(c.low)} stroke={color} strokeWidth={1.5} />
-          <Rect x={x} y={y(Math.min(c.open, c.close))} width={6} height={Math.max(3, Math.abs(y(c.close) - y(c.open)))} rx={1.5} fill={color} />
-        </React.Fragment>;
-      })}
-      <Line x1={0} x2={chartWidth} y1={135} y2={135} stroke={COLORS.stonkGreen} strokeWidth={1} strokeDasharray="5 5" opacity={0.5} />
-      {labels.map((label, i) => <React.Fragment key={`${label}-${i}`}>
-        <Rect x={chartWidth + 2} y={i * 49 + 4} width={right - 3} height={18} fill="transparent" />
-        <SvgText x={chartWidth + 4} y={i * 49 + 17} label={label} />
-      </React.Fragment>)}
-    </Svg>
-  );
-}
-function SvgText({ x, y, label }: { x: number; y: number; label: string }) {
-  return <SvgLabel x={x} y={y} fill={COLORS.grey} fontSize={9}>{label}</SvgLabel>;
 }
 
 export default function DexTokenScreen() {
@@ -256,7 +197,7 @@ export default function DexTokenScreen() {
       />
       <LinearGradient colors={GRADIENTS.tokens} style={StyleSheet.absoluteFill} />
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <ScrollView showsVerticalScrollIndicator={false} nestedScrollEnabled contentContainerStyle={styles.content}>
           <View style={styles.topBar}>
             <Pressable accessibilityLabel="Back to tokens" onPress={() => router.back()} style={styles.round}><ArrowLeft color={COLORS.white} size={23} /></Pressable>
             <View style={styles.headerRight}>
@@ -288,7 +229,12 @@ export default function DexTokenScreen() {
             <View style={styles.marketInfo}><Text style={styles.marketLabel}>MC</Text><Text style={styles.marketValue}>{token.marketCap}</Text><Text style={[styles.change, { color: positive ? COLORS.buy : COLORS.sell }]}>{positive ? "▲" : "▼"} {Math.abs(token.change).toFixed(2)}%</Text></View>
           </View>
           <View style={styles.chart}>
-            <PriceCandles width={Math.max(280, width - 30)} candles={candles ?? []} />
+            <PriceChart
+              width={Math.max(280, width - 30)}
+              candles={candles ?? []}
+              marketCapUsd={marketCapUsd}
+              priceUsd={priceUsd}
+            />
             {chartLoading && !(candles?.length) ? (
               <View style={styles.chartOverlay}><ActivityIndicator color={COLORS.stonkGreen} /></View>
             ) : null}
