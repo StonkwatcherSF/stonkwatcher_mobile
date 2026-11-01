@@ -163,6 +163,9 @@ export async function fetchTracer(address: string, fresh = false) {
       fresh: fresh ? 1 : undefined,
     });
   } catch (error) {
+    if (error instanceof ApiError && error.status === 400) {
+      throw new Error("Enter a valid Solana wallet or token mint.");
+    }
     if (!isUnauthorized(error)) throw error;
     return publicTokenTrace(address);
   }

@@ -48,12 +48,18 @@ function MainContent() {
     pathname === "/wallet/send" ||
     pathname.startsWith("/wallet/send/");
 
+  const isTracerProfile =
+    pathname.startsWith("/tracer/") &&
+    pathname !== "/tracer/top-10-volume" &&
+    pathname !== "/tracer/gtaVI";
+
   const hideBottomNav =
     isSnapshot ||
     isDex ||
     isSettings ||
     isWithdraw ||
-    isSend;
+    isSend ||
+    isTracerProfile;
 
   return (
     <View style={styles.container}>

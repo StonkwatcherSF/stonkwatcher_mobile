@@ -44,20 +44,20 @@ export default function TracerScreen() {
   const newTokens = (launches ?? []).slice(0, 4);
 
   function openTrace(target: string) {
-    if (!isSolanaAddress(target)) {
-      Alert.alert("Invalid address", "Enter a valid Solana wallet or token address.");
-      return;
-    }
-    router.push(tracerHref(target));
-  }
-
-  function onTrace() {
-    const target = address.trim();
-    if (!target) {
+    const next = target.trim();
+    if (!next) {
       Alert.alert("Trace", "Enter a wallet or token address first.");
       return;
     }
-    openTrace(target);
+    if (!isSolanaAddress(next)) {
+      Alert.alert("Invalid address", "Enter a valid Solana wallet or token mint.");
+      return;
+    }
+    router.push(tracerHref(next));
+  }
+
+  function onTrace() {
+    openTrace(address);
   }
 
   return (

@@ -24,6 +24,7 @@ import TokenImage from "../../components/TokenImage";
 import { useRouter } from "expo-router";
 import { ALL_QUOTES, FALLBACK_QUOTES, type SelectedQuote } from "../../lib/config";
 import { formatMc, formatPrice } from "../../lib/format";
+import { mergeQuoteOptions, matchesQuote, quotesFromTokens } from "../../lib/quotes";
 import { tokenMint, truncateAddress } from "../../lib/solana";
 import { dexHref } from "../../lib/nav";
 import { useQuoteCatalog } from "../../hooks/useQuotes";
@@ -45,8 +46,13 @@ export default function TokensScreen() {
   const [quoteQuery, setQuoteQuery] = useState("");
   const [showQuotes, setShowQuotes] = useState(false);
   const { data: quoteCatalog } = useQuoteCatalog();
-  const { data: tokens, loading, error } = useTokens(activeTab, quote);
-  const quoteOptions = quoteCatalog?.length ? quoteCatalog : FALLBACK_QUOTES;
+  const { data: tokens, loading, error } = useTokens(activeTab);
+  const liveQuotes = quotesFromTokens(tokens ?? []);
+  const quoteOptions = mergeQuoteOptions(
+    liveQuotes.length > 1 ? liveQuotes : FALLBACK_QUOTES,
+    quoteCatalog,
+  );
+  const visibleTokens = (tokens ?? []).filter((token) => matchesQuote(token, quote));
   const visibleQuotes = quoteOptions.filter((option) => {
     const q = quoteQuery.trim().toLowerCase();
     if (!q) return true;
@@ -199,7 +205,10 @@ export default function TokensScreen() {
           {error && !(tokens?.length) ? (
             <Text style={styles.marketCap}>{error}</Text>
           ) : null}
-          {(tokens ?? []).map((token) => {
+          {!loading && tokens?.length && !visibleTokens.length ? (
+            <Text style={styles.marketCap}>No {quote.symbol} pairs in this list.</Text>
+          ) : null}
+          {visibleTokens.map((token) => {
             const change = token.market?.priceChange24h ?? 0;
             const mint = tokenMint(token);
             return (

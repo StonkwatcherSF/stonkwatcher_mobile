@@ -1,4 +1,5 @@
-import { STONKFUN_API_URL } from "./config";
+import { STONKFUN_API_URL, USDC_MINT, WSOL_MINT } from "./config";
+import { prettyQuoteSymbol } from "./quotes";
 import { tokenMint } from "./solana";
 import type { OhlcvCandle, StonkFunToken, TokensPage } from "./types";
 
@@ -31,6 +32,11 @@ export function normalizeToken(raw: unknown): StonkFunToken | null {
     id: asText(row.id),
   });
   if (!mint) return null;
+  const quoteMint = asText(quote.mint) ?? asText(row.quoteMint);
+  const quoteSymbol = prettyQuoteSymbol(
+    asText(quote.symbol) ?? asText(row.quoteSymbol),
+    quoteMint,
+  );
   return {
     mint,
     name: asText(row.name),
@@ -42,8 +48,8 @@ export function normalizeToken(raw: unknown): StonkFunToken | null {
     createdAt: asText(row.createdAt),
     graduatedAt: asText(row.graduatedAt),
     quote: {
-      mint: asText(quote.mint) ?? asText(row.quoteMint),
-      symbol: asText(quote.symbol) ?? asText(row.quoteSymbol),
+      mint: quoteMint ?? (quoteSymbol === "SOL" ? WSOL_MINT : quoteSymbol === "USDC" ? USDC_MINT : undefined),
+      symbol: quoteSymbol,
       name: asText(quote.name),
       logoUrl: asText(quote.logoUrl),
     },

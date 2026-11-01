@@ -3,6 +3,7 @@
     "name": "StonkWatcher",
     "slug": "StonkWatcher",
     "version": "1.0.0",
+    "scheme": "stonkwatcher",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -10,7 +11,9 @@
       "ios"
     ],
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "xyz.stonkwatcher.app",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -29,7 +32,8 @@
       "expo-status-bar",
       "expo-router",
       "expo-web-browser",
-      "expo-sharing"
+      "expo-sharing",
+      "expo-apple-authentication"
     ]
   }
 }

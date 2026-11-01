@@ -5,5 +5,8 @@ export function dexHref(mint: string): Href {
 }
 
 export function tracerHref(address: string): Href {
-  return `/tracer/${encodeURIComponent(address)}` as Href;
+  return {
+    pathname: "/tracer/[address]",
+    params: { address: address.trim() },
+  };
 }

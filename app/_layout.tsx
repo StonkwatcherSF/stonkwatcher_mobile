@@ -6,6 +6,7 @@ import { useFonts } from "expo-font";
 import { View, ActivityIndicator } from "react-native";
 
 import { COLORS } from "../constants/theme";
+import { AuthProvider } from "../components/AuthContext";
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -32,7 +33,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <AuthProvider>
       <StatusBar style="light" />
 
       <Stack
@@ -44,12 +45,11 @@ export default function RootLayout() {
           },
         }}
       >
-        
-
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
+        <Stack.Screen name="auth/callback" />
         <Stack.Screen name="(main)" />
       </Stack>
-    </>
+    </AuthProvider>
   );
 }

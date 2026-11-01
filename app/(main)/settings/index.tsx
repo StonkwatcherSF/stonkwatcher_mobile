@@ -52,7 +52,12 @@ export default function SettingsHome() {
         ))}
       </View>
       <Text style={styles.version}>v1.0.0.0  demo</Text>
-      <Pressable style={styles.logout} onPress={() => router.replace("/login" as any)} accessibilityRole="button" accessibilityLabel="Log out of demo">
+      <Pressable
+        style={styles.logout}
+        onPress={() => router.replace("/login")}
+        accessibilityRole="button"
+        accessibilityLabel="Log out of demo"
+      >
         <Text style={styles.logoutText}>Logout</Text>
       </Pressable>
     </Page>

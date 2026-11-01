@@ -17,8 +17,6 @@ import Svg, {
   Rect,
   Line,
 } from "react-native-svg";
-import { COLORS } from "../constants/theme";
-
 // ============================================
 // COLORS
 // ============================================
@@ -85,9 +83,7 @@ export default function LoginScreen() {
   const router = useRouter();
 
   const handleDemoLogin = () => {
-    // Demo login only — no real authentication.
-    // Replace prevents returning to login via Back.
-    router.replace("/wallet" as any);
+    router.replace("/tokens");
   };
 
   return (
