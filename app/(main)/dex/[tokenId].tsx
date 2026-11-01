@@ -2,6 +2,8 @@ import React, { useRef, useState } from "react";
 import { View, Text, ScrollView, Pressable, StyleSheet, useWindowDimensions, Alert, Image, ActivityIndicator } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Clipboard from "expo-clipboard";
+import * as Haptics from "expo-haptics";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, BadgeCheck, Copy, Send, SlidersHorizontal } from "lucide-react-native";
 import { COLORS, FONTS, GRADIENTS } from "../../../constants/theme";
@@ -125,6 +127,7 @@ export default function DexTokenScreen() {
   const { width } = useWindowDimensions();
   const [period, setPeriod] = useState<Period>("1m");
   const [infoTab, setInfoTab] = useState<InfoTab>("Transactions");
+  const [copied, setCopied] = useState(false);
   const [tradeMode, setTradeMode] = useState<"buy" | "sell" | null>(null);
   const [confirmedTrade, setConfirmedTrade] = useState<{
     mode: "buy" | "sell";
@@ -153,8 +156,15 @@ export default function DexTokenScreen() {
   }
   const token = { name, symbol: symbol || ticker.replace(/^\$/, ""), marketCap: formatMc(marketCapUsd).replace(" MC", ""), price: formatPrice(priceUsd), change };
 
-  const handleCopyMint = () => {
-    Alert.alert("Contract address", mint);
+  const handleCopyMint = async () => {
+    try {
+      await Clipboard.setStringAsync(mint);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      Alert.alert("Unable to copy", "Could not copy the contract address.");
+    }
   };
   const positive = token.change >= 0;
 
@@ -230,7 +240,7 @@ export default function DexTokenScreen() {
           </View>
           <View style={styles.tokenHeader}>
             <View style={styles.tokenAvatar}><TokenImage uri={logoUri} mint={mint} style={styles.tokenImage} /></View>
-            <View style={{ flex: 1 }}><View style={styles.nameRow}><Text style={styles.tokenName}>{token.name}</Text><BadgeCheck size={17} color={COLORS.stonkGreen} /></View><Pressable onPress={handleCopyMint} style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5 }} accessibilityRole="button" accessibilityLabel="Show contract address"><Text style={styles.symbol}>{ticker}</Text><Copy size={12} color={COLORS.grey} /></Pressable></View>
+            <View style={{ flex: 1 }}><View style={styles.nameRow}><Text style={styles.tokenName}>{token.name}</Text><BadgeCheck size={17} color={COLORS.stonkGreen} /></View><Pressable onPress={() => void handleCopyMint()} hitSlop={10} style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5 }} accessibilityRole="button" accessibilityLabel="Copy contract address"><Text style={styles.symbol}>{copied ? "Copied" : ticker}</Text><Copy size={12} color={copied ? COLORS.stonkGreen : COLORS.grey} /></Pressable></View>
             <View style={styles.marketInfo}><Text style={styles.marketLabel}>MC</Text><Text style={styles.marketValue}>{token.marketCap}</Text><Text style={[styles.change, { color: positive ? COLORS.buy : COLORS.sell }]}>{positive ? "▲" : "▼"} {Math.abs(token.change).toFixed(2)}%</Text></View>
           </View>
           <View style={styles.chart}>
