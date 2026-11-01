@@ -24,7 +24,9 @@ import SettingsIcon from "../../../assets/icons/settings.svg";
 import StonkIcon from "../../../assets/icons/stonkwatcher-icon.svg";
 import BubbleIcon from "../../../assets/icons/bubble-map.svg";
 import TokenImage from "../../../components/TokenImage";
+import HolderBubbleMap from "../../../components/HolderBubbleMap";
 import { useTracer } from "../../../hooks/useTracer";
+import { bubbleHolderStats } from "../../../lib/bubble-layout";
 import {
   compactUsd,
   formatAge,
@@ -38,63 +40,12 @@ import {
 } from "../../../lib/format";
 import { isSolanaAddress, readRouteParam, truncateAddress } from "../../../lib/solana";
 import { shareExternally } from "../../../utils/share";
-import type { BubbleMapData, BubbleMapNode, TracerPayload } from "../../../lib/types";
+import type { BubbleMapData, TracerPayload } from "../../../lib/types";
 
 const LIME = "#C6E900";
 const BG = "#10110B";
 const PANEL = "#151515";
 const MUTED = "#B6B6B6";
-
-const CLUSTER_COLORS: Record<string, string> = {
-  organic: "#9C9FA4",
-  whale: "#319C90",
-  cex: "#5785C8",
-  bundle: "#E58A62",
-  dev: "#EAC849",
-  magic: "#9C8AFF",
-  time: "#5785C8",
-  transfer: "#319C90",
-};
-
-type Bubble = { x: number; y: number; size: number; color: string; isDev?: boolean };
-
-function layoutBubbles(nodes: BubbleMapNode[]): Bubble[] {
-  const wallets = nodes.filter((node) => node.kind === "wallet" && !node.isPool).slice(0, 90);
-  const rows = [9, 10, 9, 9, 10, 9, 9, 8, 6, 5];
-  const items: Bubble[] = [];
-  let i = 0;
-  rows.forEach((count, row) => {
-    for (let col = 0; col < count && i < wallets.length; col += 1, i += 1) {
-      const node = wallets[i];
-      const middle = (count - 1) / 2;
-      const x = 0.5 + (col - middle) * 0.087 + Math.sin(row * 2.4 + col) * 0.009;
-      const y = 0.09 + row * 0.083 + Math.cos(col * 1.7) * 0.01;
-      const pct = node.percentage ?? node.weight ?? 0;
-      const size = Math.max(12, Math.min(42, 14 + pct * 1.6));
-      items.push({
-        x,
-        y,
-        size,
-        color: CLUSTER_COLORS[node.clusterKind] ?? "#9C9FA4",
-        isDev: node.isCreator,
-      });
-    }
-  });
-  return items;
-}
-
-function clusterCounts(nodes: BubbleMapNode[]) {
-  let isolated = 0;
-  let linked = 0;
-  let dev = 0;
-  for (const node of nodes) {
-    if (node.kind !== "wallet" || node.isPool) continue;
-    if (node.isCreator || node.clusterKind === "dev") dev += 1;
-    else if (node.clusterKind === "organic") isolated += 1;
-    else linked += 1;
-  }
-  return { isolated, linked, dev };
-}
 
 function SectionHeader({
   title,
@@ -187,25 +138,28 @@ export default function TracerAnalysisScreen() {
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [marketOpen, setMarketOpen] = useState(true);
   const [zoom, setZoom] = useState(1);
+  const [fitKey, setFitKey] = useState(0);
   const [holdersOpen, setHoldersOpen] = useState(false);
   const mapWidth = Math.max(260, Math.min(width - 40, 420));
   const mapHeight = 395;
-  const { data, bubbleMap, loading, analyzing, error } = useTracer(address);
+  const { data, bubbleMap, loading, bubbleLoading, analyzing, error } = useTracer(address);
   const token = data?.token;
   const isWallet = data?.mode === "wallet";
-  const nodes = (bubbleMap?.nodes ?? token?.bubbleMap?.nodes) as BubbleMapNode[] | undefined;
-  const bubbles = useMemo(() => layoutBubbles(nodes ?? []), [nodes]);
-  const holders = useMemo(() => clusterCounts(nodes ?? []), [nodes]);
+  const mapData: BubbleMapData | null =
+    bubbleMap ?? (token?.bubbleMap?.edition === "v2" ? token.bubbleMap : null);
+  const holders = useMemo(
+    () => bubbleHolderStats(mapData?.nodes ?? [], mapData?.links ?? []),
+    [mapData],
+  );
   const title = isWallet
     ? truncateAddress(address, 4)
     : token?.name || token?.symbol || truncateAddress(address, 4);
   const symbol = isWallet ? "Wallet" : prettySymbol(token?.symbol) || truncateAddress(address, 4);
   const quote = token?.brief.quoteSymbol;
-  const score = token?.brief.score ?? null;
+  const score = token?.brief.score ?? mapData?.intel?.score ?? null;
   const snapshot = snapshotRows(data);
   const signals = analysisRows(data);
   const status = token?.brief.status;
-  const mapData: BubbleMapData | null = bubbleMap ?? token?.bubbleMap ?? null;
 
   function shareTrace() {
     void shareExternally({
@@ -221,7 +175,7 @@ export default function TracerAnalysisScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView nestedScrollEnabled contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
           <Pressable style={styles.circleButton} onPress={() => router.back()} accessibilityLabel="Go back">
             <ArrowLeft size={20} color="#F0F0F0" />
@@ -327,32 +281,27 @@ export default function TracerAnalysisScreen() {
         <View style={styles.mapPanel}>
           <View style={styles.mapTitleRow}><BubbleIcon width={18} height={18} /><Text style={styles.mapTitle}>Holder Bubble Map</Text></View>
           <View style={styles.mapToolbar}>
-            <Text style={styles.mapSubtitle}>{`${Math.min(nodes?.length ?? 0, 100)} holders max · ${mapData?.intel?.clusterCount ?? token?.clusterCount ?? 0} clusters`}</Text>
-            <Pressable style={styles.fitButton} onPress={() => setZoom(1)}>
+            <Text style={styles.mapSubtitle}>{`${Math.min(holders.total, 100)} holders · ${mapData?.intel?.clusterCount ?? token?.clusterCount ?? 0} clusters · v2`}</Text>
+            <Pressable
+              style={styles.fitButton}
+              onPress={() => {
+                setZoom(1);
+                setFitKey((value) => value + 1);
+              }}
+            >
               <Scan size={17} color="#10110B" />
               <Text style={styles.fitText}>Fit View</Text>
             </Pressable>
           </View>
           <View style={[styles.mapCanvas, { height: mapHeight }]}>
-            <View style={[styles.bubbleLayer, { width: mapWidth, height: mapHeight, transform: [{ scale: zoom }] }]}>
-              {bubbles.map((bubble, index) => (
-                <View
-                  key={index}
-                  style={{
-                    position: "absolute",
-                    left: bubble.x * mapWidth - bubble.size / 2,
-                    top: bubble.y * mapHeight - bubble.size / 2,
-                    width: bubble.size,
-                    height: bubble.size,
-                    borderRadius: bubble.size / 2,
-                    backgroundColor: bubble.color,
-                    borderColor: "#353A44",
-                    borderWidth: 3,
-                  }}
-                />
-              ))}
-              <View style={styles.devMarker}><Text style={styles.devMarkerText}>Dev</Text></View>
-            </View>
+            <HolderBubbleMap
+              data={mapData}
+              loading={bubbleLoading}
+              width={mapWidth}
+              height={mapHeight}
+              zoom={zoom}
+              fitKey={fitKey}
+            />
             <View style={styles.zoomControls}>
               <Pressable style={styles.zoomButton} onPress={() => setZoom((v) => Math.min(1.8, +(v + 0.2).toFixed(1)))} accessibilityLabel="Zoom in">
                 <Plus size={19} color="#FFFFFF" />
@@ -368,7 +317,7 @@ export default function TracerAnalysisScreen() {
             <Text style={[styles.legendText, { color: "#EAC849" }]}>● Dev cluster</Text>
             <Text style={styles.legendText}>● Magic node</Text>
           </View>
-          <Text style={styles.mapHint}>Use + / − to zoom · Tap Fit View to reset</Text>
+          <Text style={styles.mapHint}>Drag to pan · Use + / − to zoom · Fit View resets</Text>
           <Pressable style={styles.holdersButton} onPress={() => setHoldersOpen(!holdersOpen)}>
             <List size={17} color="#FFFFFF" />
             <Text style={styles.holdersButtonText}>Holders distribution list</Text>
@@ -446,9 +395,6 @@ const styles = StyleSheet.create({
   fitButton: { backgroundColor: LIME, borderRadius: 5, paddingHorizontal: 12, paddingVertical: 9, flexDirection: "row", gap: 6, alignItems: "center" },
   fitText: { color: "#0B1000", fontSize: 13, fontWeight: "700" },
   mapCanvas: { backgroundColor: "#080D18", overflow: "hidden", justifyContent: "center", alignItems: "center" },
-  bubbleLayer: { position: "absolute", left: 0, top: 0 },
-  devMarker: { position: "absolute", left: "15%", top: "66%", width: 25, height: 25, borderRadius: 13, backgroundColor: "#F5D04C", borderWidth: 3, borderColor: "#242A31" },
-  devMarkerText: { color: "#DADADA", position: "absolute", top: 24, left: -1, fontSize: 9 },
   zoomControls: { position: "absolute", right: 9, bottom: 17, backgroundColor: "#151515", borderRadius: 6, paddingVertical: 4 },
   zoomButton: { width: 34, height: 34, justifyContent: "center", alignItems: "center" },
   legend: { flexDirection: "row", flexWrap: "wrap", gap: 13, paddingHorizontal: 13, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#1B2432" },

@@ -185,30 +185,47 @@ export type BubbleClusterKind =
   | "time"
   | "transfer";
 
+export type BubbleMapLink = {
+  id: string;
+  source: string;
+  target: string;
+  type: string;
+};
+
 export type BubbleMapNode = {
   id: string;
   kind: "wallet" | "token";
   label: string;
+  href?: string;
+  address?: string;
   amount: number;
   percentage: number | null;
+  sold?: number;
+  bought?: number;
   weight: number;
   isCreator: boolean;
   isPool: boolean;
   isMagic?: boolean;
+  isTimeNode?: boolean;
   clusterKind: BubbleClusterKind;
 };
 
 export type BubbleMapData = {
   nodes?: BubbleMapNode[];
-  links?: { id: string; source: string; target: string; type: string }[];
+  links?: BubbleMapLink[];
   summary?: {
+    supply?: number;
     walletCount?: number;
     clusterCount?: number;
   };
+  computedAt?: string;
+  edition?: "v1" | "v2";
   intel?: {
     score?: number;
+    scoreLabel?: "healthy" | "mixed" | "concentrated";
     clusterCount?: number;
     magicCount?: number;
+    bundleWallets?: number;
   };
 };
 
@@ -261,6 +278,9 @@ export type TracerPayload = {
 export type BubbleMapResponse = {
   bubbleMap?: BubbleMapData;
   supply?: number | null;
+  computedAt?: string;
+  edition?: "v1" | "v2";
+  intel?: BubbleMapData["intel"];
 };
 
 export type AnalyzeResponse = {

@@ -200,6 +200,27 @@ export function queueAnalyze(mint: string) {
   return apiPost<AnalyzeResponse>("/api/analyze", { mint });
 }
 
-export function fetchBubbleMap(mint: string) {
-  return apiGet<BubbleMapResponse>(`/api/tokens/${encodeURIComponent(mint)}/bubble-v2`);
+const BUBBLE_TTL_MS = 60_000;
+const bubbleCache = new Map<string, { at: number; body: BubbleMapResponse }>();
+
+export async function fetchBubbleMap(mint: string) {
+  const cached = bubbleCache.get(mint);
+  if (cached && Date.now() - cached.at < BUBBLE_TTL_MS && (cached.body.bubbleMap?.nodes?.length ?? 0) > 0) {
+    return cached.body;
+  }
+  const body = await apiGet<BubbleMapResponse>(`/api/tokens/${encodeURIComponent(mint)}/bubble-v2`);
+  const raw = body.bubbleMap;
+  const bubbleMap = raw
+    ? {
+        ...raw,
+        computedAt: raw.computedAt ?? body.computedAt,
+        edition: raw.edition ?? body.edition ?? "v2",
+        intel: raw.intel ?? body.intel,
+      }
+    : undefined;
+  const next = { ...body, bubbleMap, edition: body.edition ?? bubbleMap?.edition, computedAt: body.computedAt ?? bubbleMap?.computedAt };
+  if ((next.bubbleMap?.nodes?.length ?? 0) > 0) {
+    bubbleCache.set(mint, { at: Date.now(), body: next });
+  }
+  return next;
 }

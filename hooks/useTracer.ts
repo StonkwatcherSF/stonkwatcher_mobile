@@ -11,6 +11,7 @@ export function useTracer(address?: string) {
   const [bubbleMap, setBubbleMap] = useState<BubbleMapData | null>(null);
   const valid = Boolean(address && isSolanaAddress(address));
   const [loading, setLoading] = useState(valid);
+  const [bubbleLoading, setBubbleLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,16 +31,20 @@ export function useTracer(address?: string) {
     }
 
     async function loadBubble(mint: string) {
+      if (!cancelled) setBubbleLoading(true);
       try {
         const body = await fetchBubbleMap(mint);
         if (!cancelled) setBubbleMap(body.bubbleMap ?? null);
       } catch {
         if (!cancelled) setBubbleMap(null);
+      } finally {
+        if (!cancelled) setBubbleLoading(false);
       }
     }
 
     async function run() {
       setLoading(true);
+      setBubbleMap(null);
       setAnalyzing(false);
       try {
         let payload = await load();
@@ -86,6 +91,7 @@ export function useTracer(address?: string) {
     data,
     bubbleMap,
     loading: valid && loading,
+    bubbleLoading: valid && bubbleLoading,
     analyzing,
     error: valid ? error : address ? "Enter a valid Solana address" : null,
   };
