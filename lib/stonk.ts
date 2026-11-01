@@ -8,6 +8,7 @@ import {
   normalizeToken,
 } from "./public-data";
 import { tokenMint } from "./solana";
+import { fetchPublicTokenInfo } from "./token-info";
 import type {
   AnalyzeResponse,
   BubbleMapResponse,
@@ -16,7 +17,6 @@ import type {
   OhlcvResponse,
   QuoteAsset,
   QuoteCatalog,
-  TokenInfoPayload,
   TokensPage,
   TracerPayload,
   TracerTokenView,
@@ -105,9 +105,7 @@ export async function fetchIntel(mint: string, name?: string, symbol?: string) {
   return { rows: await fetchPublicTrades(mint, symbol || name), source: "geckoterminal" };
 }
 
-export function fetchTokenInfo(mint: string) {
-  return apiGet<TokenInfoPayload>("/api/dex/token-info", { mint });
-}
+export const fetchTokenInfo = fetchPublicTokenInfo;
 
 export function fetchVolumeLeaders(window: VolumeLeaderWindow) {
   return apiGet<VolumeLeadersResponse>("/api/board/volume-leaders", { window });

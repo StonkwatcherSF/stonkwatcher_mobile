@@ -1,6 +1,4 @@
-import { API_URL } from "./config";
-
-const STONKFUN_SITE = "https://www.stonkfun.xyz";
+import { API_URL, STONKFUN_SITE } from "./config";
 
 export function resolveMediaUrl(url?: string | null) {
   if (!url) return null;

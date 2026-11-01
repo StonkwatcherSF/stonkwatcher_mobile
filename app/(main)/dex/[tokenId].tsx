@@ -46,23 +46,30 @@ function authLabel(value: "on" | "off" | null | undefined) {
   return "—";
 }
 
-function TokenInfoPanel({ info }: { info: TokenInfoPayload | null }) {
+function authTone(value: "on" | "off" | null | undefined) {
+  if (value === "on") return COLORS.sell;
+  if (value === "off") return COLORS.buy;
+  return COLORS.white;
+}
+
+function TokenInfoPanel({ info, loading }: { info: TokenInfoPayload | null; loading: boolean }) {
   const stats = info?.stats;
   const rewards = info?.rewards;
+  const quote = (rewards?.quoteSymbol || "").replace(/^\$/, "");
   const metrics = [
     { label: "Top 10 Holder", value: formatPct(stats?.top10Pct) },
     { label: "Dev Hold Percentage", value: formatPct(stats?.devPct) },
     { label: "Snipers Hold", value: formatPct(stats?.sniperPct) },
-    { label: "Freeze Auth", value: authLabel(stats?.freezeAuth) },
-    { label: "Mint Auth", value: authLabel(stats?.mintAuth) },
+    { label: "Freeze Auth", value: authLabel(stats?.freezeAuth), color: authTone(stats?.freezeAuth) },
+    { label: "Mint Auth", value: authLabel(stats?.mintAuth), color: authTone(stats?.mintAuth) },
     { label: "Dex", value: formatPct(stats?.dexPct) },
     { label: "Buyback", value: formatPct(stats?.buybackPct) },
     { label: "Burn", value: formatPct(stats?.burnPct) },
     { label: "Clusters", value: formatPct(stats?.clusterPct) },
   ];
   const holderRewards = [
-    { label: "Paid to Holders", value: compactUsd(rewards?.paidUsd), note: rewards?.paidTokens ? `${formatTokenAmount(rewards.paidTokens)} ${rewards.quoteSymbol || ""}`.trim() : "" },
-    { label: "Pending Payout", value: compactUsd(rewards?.pendingUsd), note: rewards?.pendingTokens ? `${formatTokenAmount(rewards.pendingTokens)} ${rewards.quoteSymbol || ""}`.trim() : "" },
+    { label: "Paid to Holders", value: compactUsd(rewards?.paidUsd), note: rewards?.paidTokens != null ? `${formatTokenAmount(rewards.paidTokens)} ${quote}`.trim() : "" },
+    { label: "Pending Payout", value: compactUsd(rewards?.pendingUsd), note: rewards?.pendingTokens != null ? `${formatTokenAmount(rewards.pendingTokens)} ${quote}`.trim() : "" },
     { label: "Payouts", value: formatCount(rewards?.payouts) },
     { label: "Holders", value: formatCount(rewards?.holders) },
   ];
@@ -70,12 +77,16 @@ function TokenInfoPanel({ info }: { info: TokenInfoPayload | null }) {
     <View style={styles.tokenInfoPanel}>
       <View style={styles.sectionHeading}>
         <Text style={styles.sectionTitle}>Token Info <Text style={styles.sectionAccent}>♙</Text></Text>
-        <Text style={styles.demoIndicator}>{info ? "Live statistics" : "Loading statistics"}</Text>
+        <Text style={styles.demoIndicator}>{loading && !info ? "Loading" : "StonkFun"}</Text>
       </View>
+      {loading && !info ? (
+        <ActivityIndicator color={COLORS.stonkGreen} style={{ marginVertical: 18 }} />
+      ) : (
+        <>
       <View style={styles.metricGrid}>
         {metrics.map((metric) => (
           <View key={metric.label} style={styles.metricCard}>
-            <Text style={styles.metricValue}>{metric.value}</Text>
+            <Text style={[styles.metricValue, metric.color ? { color: metric.color } : null]}>{metric.value}</Text>
             <Text style={styles.metricLabel} numberOfLines={2}>{metric.label}</Text>
           </View>
         ))}
@@ -84,6 +95,9 @@ function TokenInfoPanel({ info }: { info: TokenInfoPayload | null }) {
         <Text style={styles.sectionTitle}>Holder Rewards <Text style={styles.sectionAccent}>♕</Text></Text>
         <Text style={styles.sectionTime}>{rewards?.lastPayoutAt ? formatAge(rewards.lastPayoutAt) : "—"}</Text>
       </View>
+      {rewards?.enabled === false ? (
+        <Text style={styles.chartEmpty}>This launch pays the creator, not holders.</Text>
+      ) : (
       <View style={styles.rewardGrid}>
         {holderRewards.map((reward) => (
           <View key={reward.label} style={styles.rewardCard}>
@@ -93,6 +107,9 @@ function TokenInfoPanel({ info }: { info: TokenInfoPayload | null }) {
           </View>
         ))}
       </View>
+      )}
+        </>
+      )}
     </View>
   );
 }
@@ -183,7 +200,7 @@ export default function DexTokenScreen() {
   const marketCapUsd = market?.marketCapUsd ?? tokenMeta?.market?.marketCapUsd ?? null;
   const change = tokenMeta?.market?.priceChange24h ?? 0;
   const { data: trades, loading: tradesLoading } = useTokenTrades(mint, tokenMeta?.name, symbol);
-  const { data: tokenInfo } = useTokenInfo(mint);
+  const { data: tokenInfo, loading: infoLoading } = useTokenInfo(mint, infoTab === "Token Info");
 
   if (!isSolanaAddress(mint)) {
     return <SafeAreaView style={styles.root}><Pressable onPress={() => router.back()} style={styles.back}><ArrowLeft color={COLORS.white} /></Pressable><Text style={styles.heading}>Token not found</Text></SafeAreaView>;
@@ -310,7 +327,7 @@ export default function DexTokenScreen() {
               <Text style={styles.chartEmpty}>No recent trades</Text>
             )
           ) : (
-            <TokenInfoPanel info={tokenInfo} />
+            <TokenInfoPanel info={tokenInfo} loading={infoLoading} />
           )}
         </ScrollView>
         <View style={styles.bottomBar}><Pressable style={[styles.tradeButton, { backgroundColor: COLORS.sell }]} onPress={() => setTradeMode("sell")}><Text style={styles.tradeText}>Sell</Text></Pressable><Pressable style={[styles.tradeButton, { backgroundColor: COLORS.buy }]} onPress={() => setTradeMode("buy")}><Text style={styles.tradeText}>Buy</Text></Pressable></View>

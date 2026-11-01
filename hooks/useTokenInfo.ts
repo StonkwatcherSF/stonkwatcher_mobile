@@ -15,8 +15,8 @@ export function useTokenTrades(mint?: string, name?: string, symbol?: string) {
   );
 }
 
-export function useTokenInfo(mint?: string) {
-  const valid = Boolean(mint && isSolanaAddress(mint));
+export function useTokenInfo(mint?: string, enabled = true) {
+  const valid = Boolean(enabled && mint && isSolanaAddress(mint));
   return useAsync<TokenInfoPayload>(
     async () => fetchTokenInfo(mint!),
     [mint],

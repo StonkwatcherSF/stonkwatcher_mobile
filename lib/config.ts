@@ -2,7 +2,8 @@ export const API_URL = (
   process.env.EXPO_PUBLIC_API_URL || "https://www.stonkwatcher.xyz"
 ).replace(/\/$/, "");
 
-export const STONKFUN_API_URL = "https://www.stonkfun.xyz/api/public/v1";
+export const STONKFUN_SITE = "https://stonkfun.xyz";
+export const STONKFUN_API_URL = `${STONKFUN_SITE}/api/public/v1`;
 
 export const PARTNER_API_KEY = process.env.EXPO_PUBLIC_PARTNER_API_KEY || "";
 
