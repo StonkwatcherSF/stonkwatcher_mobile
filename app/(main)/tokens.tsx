@@ -223,6 +223,7 @@ export default function TokensScreen() {
               <View style={styles.tokenAvatar}>
                 <TokenImage
                   uri={token.imageUrl || token.logoUrl}
+                  mint={mint}
                   style={styles.tokenImage}
                 />
               </View>

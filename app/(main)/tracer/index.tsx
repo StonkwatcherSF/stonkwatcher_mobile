@@ -23,10 +23,10 @@ import type { VolumeLeaderWindow } from "../../../lib/types";
 
 type Period = "24 Hours" | "1 Week";
 
-function TokenAvatar({ uri }: { uri?: string | null }) {
+function TokenAvatar({ uri, mint }: { uri?: string | null; mint?: string | null }) {
   return (
     <View style={styles.tokenIcon}>
-      <TokenImage uri={uri} style={styles.tokenImage} />
+      <TokenImage uri={uri} mint={mint} style={styles.tokenImage} />
     </View>
   );
 }
@@ -168,7 +168,7 @@ export default function TracerScreen() {
                 </Text>
               </View>
 
-              <TokenAvatar uri={token.imageUrl} />
+              <TokenAvatar uri={token.imageUrl} mint={token.mint} />
 
               <View style={styles.tokenInfo}>
                 <Text
@@ -218,7 +218,7 @@ export default function TracerScreen() {
               style={styles.tokenRow}
               onPress={() => openTrace(token.mint)}
             >
-              <TokenAvatar uri={token.imageUrl || token.logoUrl} />
+              <TokenAvatar uri={token.imageUrl || token.logoUrl} mint={token.mint} />
 
               <View style={styles.tokenInfo}>
                 <Text

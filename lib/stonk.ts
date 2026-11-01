@@ -1,5 +1,12 @@
 import { ApiError, apiGet, apiPost } from "./api";
-import { fetchPublicOhlcv, fetchStonkFunTokens, normalizeToken } from "./public-data";
+import {
+  fetchDexscreenerToken,
+  fetchPublicOhlcv,
+  fetchPublicTrades,
+  fetchStonkFunTokens,
+  mergeTokenMeta,
+  normalizeToken,
+} from "./public-data";
 import { tokenMint } from "./solana";
 import type {
   AnalyzeResponse,
@@ -66,17 +73,36 @@ export function fetchMarket(mint: string) {
   return apiGet<MarketQuote>("/api/dex/market", { mint });
 }
 
-export async function fetchOhlcv(mint: string, tf: string) {
-  try {
-    return await apiGet<OhlcvResponse>("/api/ohlcv", { tokenAddress: mint, tf });
-  } catch (error) {
-    if (!isUnauthorized(error)) throw error;
-    return { candles: await fetchPublicOhlcv(mint, tf), source: "geckoterminal" };
-  }
+export async function fetchTokenByMint(mint: string) {
+  const [board, dex] = await Promise.all([
+    fetchTokens({ q: mint, raw: true, fast: true, pageSize: 8 })
+      .then((page) => page.tokens?.find((row) => row.mint === mint) ?? null)
+      .catch(() => null),
+    fetchDexscreenerToken(mint).catch(() => null),
+  ]);
+  return mergeTokenMeta(board, dex);
 }
 
-export function fetchIntel(mint: string, name?: string, symbol?: string) {
-  return apiGet<IntelResponse>("/api/intel", { mint, name, symbol });
+export async function fetchOhlcv(mint: string, tf: string) {
+  try {
+    const body = await apiGet<OhlcvResponse>("/api/ohlcv", { tokenAddress: mint, tf });
+    if (body.candles?.length) return body;
+  } catch (error) {
+    if (!isUnauthorized(error) && !(error instanceof ApiError && error.status >= 500)) {
+      /* still try the public candles */
+    }
+  }
+  return { candles: await fetchPublicOhlcv(mint, tf), source: "geckoterminal" };
+}
+
+export async function fetchIntel(mint: string, name?: string, symbol?: string) {
+  try {
+    const body = await apiGet<IntelResponse>("/api/intel", { mint, name, symbol });
+    if (body.rows?.length) return body;
+  } catch {
+    /* use public tape */
+  }
+  return { rows: await fetchPublicTrades(mint, symbol || name), source: "geckoterminal" };
 }
 
 export function fetchTokenInfo(mint: string) {

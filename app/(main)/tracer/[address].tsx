@@ -244,11 +244,7 @@ export default function TracerAnalysisScreen() {
 
         <View style={styles.tokenHeader}>
           <View style={styles.tokenAvatar}>
-            {token?.brief.imageUrl ? (
-              <TokenImage uri={token.brief.imageUrl} style={styles.tokenAvatarImage} />
-            ) : (
-              <Text style={styles.tokenAvatarText}>{title.slice(0, 8)}</Text>
-            )}
+            <TokenImage uri={token?.brief.imageUrl} mint={token?.mint || address} style={styles.tokenAvatarImage} />
           </View>
           <View style={styles.tokenIdentity}>
             <Text style={styles.tokenTitle}>{title}</Text>

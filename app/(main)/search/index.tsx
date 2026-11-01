@@ -97,15 +97,10 @@ function Sparkline({ positive }: { positive: boolean }) {
 }
 
 function ResultRow({ item, onPress }: { item: SearchItem; onPress: () => void }) {
-  const initial = item.name.slice(0, 1).toUpperCase();
   return (
     <Pressable style={styles.row} onPress={onPress} accessibilityRole="button" accessibilityLabel={`View ${item.name}`}>
       <View style={styles.avatar}>
-        {item.imageUrl ? (
-          <TokenImage uri={item.imageUrl} style={styles.avatarImage} />
-        ) : (
-          <Text style={styles.avatarText}>{initial}</Text>
-        )}
+        <TokenImage uri={item.imageUrl} mint={item.id} style={styles.avatarImage} />
       </View>
       <View style={styles.info}>
         <View style={styles.nameLine}>

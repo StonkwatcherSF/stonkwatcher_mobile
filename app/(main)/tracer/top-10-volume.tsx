@@ -76,7 +76,7 @@ export default function Top10VolumeScreen() {
                   <Text style={styles.rankText}>{token.rank || index + 1}</Text>
                 </View>
                 <View style={styles.tokenIcon}>
-                  <TokenImage uri={token.imageUrl} style={styles.tokenImage} />
+                  <TokenImage uri={token.imageUrl} mint={token.mint} style={styles.tokenImage} />
                 </View>
                 <View style={styles.tokenInfo}>
                   <Text numberOfLines={1} style={styles.tokenName}>

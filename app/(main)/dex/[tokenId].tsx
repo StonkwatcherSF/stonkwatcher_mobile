@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { View, Text, ScrollView, Pressable, StyleSheet, useWindowDimensions, Alert, Image } from "react-native";
+import { View, Text, ScrollView, Pressable, StyleSheet, useWindowDimensions, Alert, Image, ActivityIndicator } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -27,6 +27,7 @@ import {
   formatPrice,
   formatTokenAmount,
   formatTxTime,
+  prettySymbol,
   signedUsd,
 } from "../../../lib/format";
 import { isSolanaAddress, readRouteParam, truncateAddress } from "../../../lib/solana";
@@ -171,21 +172,27 @@ export default function DexTokenScreen() {
     amount: number;
   } | null>(null);
   const { data: detail } = useTokenMarket(mint);
-  const { data: candles } = useOhlcv(mint, period as ChartPeriod);
+  const { data: candles, loading: chartLoading } = useOhlcv(mint, period as ChartPeriod);
   const tokenMeta = detail?.token;
   const market = detail?.market;
   const name = tokenMeta?.name || tokenMeta?.symbol || truncateAddress(mint);
-  const symbol = (tokenMeta?.symbol || "").replace(/^\$/, "") || "TOKEN";
+  const symbol = (tokenMeta?.symbol || "").replace(/^\$/, "") || "";
+  const ticker = prettySymbol(symbol) || truncateAddress(mint, 4);
+  const logoUri = tokenMeta?.imageUrl || tokenMeta?.logoUrl;
   const priceUsd = market?.priceUsd ?? tokenMeta?.market?.priceUsd ?? null;
   const marketCapUsd = market?.marketCapUsd ?? tokenMeta?.market?.marketCapUsd ?? null;
   const change = tokenMeta?.market?.priceChange24h ?? 0;
-  const { data: trades } = useTokenTrades(mint, tokenMeta?.name, tokenMeta?.symbol);
+  const { data: trades, loading: tradesLoading } = useTokenTrades(mint, tokenMeta?.name, symbol);
   const { data: tokenInfo } = useTokenInfo(mint);
 
   if (!isSolanaAddress(mint)) {
     return <SafeAreaView style={styles.root}><Pressable onPress={() => router.back()} style={styles.back}><ArrowLeft color={COLORS.white} /></Pressable><Text style={styles.heading}>Token not found</Text></SafeAreaView>;
   }
-  const token = { name, symbol, marketCap: formatMc(marketCapUsd).replace(" MC", ""), price: formatPrice(priceUsd), change };
+  const token = { name, symbol: symbol || ticker.replace(/^\$/, ""), marketCap: formatMc(marketCapUsd).replace(" MC", ""), price: formatPrice(priceUsd), change };
+
+  const handleCopyMint = () => {
+    Alert.alert("Contract address", mint);
+  };
   const positive = token.change >= 0;
 
   const handleSharePosition = async () => {
@@ -259,11 +266,19 @@ export default function DexTokenScreen() {
             </View>
           </View>
           <View style={styles.tokenHeader}>
-            <View style={styles.tokenAvatar}><TokenImage uri={tokenMeta?.imageUrl || tokenMeta?.logoUrl} style={styles.tokenImage} /></View>
-            <View style={{ flex: 1 }}><View style={styles.nameRow}><Text style={styles.tokenName}>{token.name}</Text><BadgeCheck size={17} color={COLORS.stonkGreen} /></View><View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5 }}><Text style={styles.symbol}>${token.symbol}</Text><Copy size={12} color={COLORS.grey} /></View></View>
+            <View style={styles.tokenAvatar}><TokenImage uri={logoUri} mint={mint} style={styles.tokenImage} /></View>
+            <View style={{ flex: 1 }}><View style={styles.nameRow}><Text style={styles.tokenName}>{token.name}</Text><BadgeCheck size={17} color={COLORS.stonkGreen} /></View><Pressable onPress={handleCopyMint} style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5 }} accessibilityRole="button" accessibilityLabel="Show contract address"><Text style={styles.symbol}>{ticker}</Text><Copy size={12} color={COLORS.grey} /></Pressable></View>
             <View style={styles.marketInfo}><Text style={styles.marketLabel}>MC</Text><Text style={styles.marketValue}>{token.marketCap}</Text><Text style={[styles.change, { color: positive ? COLORS.buy : COLORS.sell }]}>{positive ? "▲" : "▼"} {Math.abs(token.change).toFixed(2)}%</Text></View>
           </View>
-          <View style={styles.chart}><PriceCandles width={Math.max(280, width - 30)} candles={candles ?? []} /></View>
+          <View style={styles.chart}>
+            <PriceCandles width={Math.max(280, width - 30)} candles={candles ?? []} />
+            {chartLoading && !(candles?.length) ? (
+              <View style={styles.chartOverlay}><ActivityIndicator color={COLORS.stonkGreen} /></View>
+            ) : null}
+            {!chartLoading && !(candles?.length) ? (
+              <View style={styles.chartOverlay}><Text style={styles.chartEmpty}>No live candles yet</Text></View>
+            ) : null}
+          </View>
           <View style={styles.periodRow}>{PERIODS.map(p => <Pressable key={p} onPress={() => setPeriod(p)} style={[styles.periodButton, period === p && styles.selectedPeriod]}><Text style={[styles.periodText, period === p && styles.selectedText]}>{p}</Text></Pressable>)}<SlidersHorizontal size={17} color={COLORS.grey} style={{ marginLeft: 5 }} /></View>
           <LinearGradient colors={["#181C09", "#262D05"]} style={styles.positionOuter}>
             <ViewShot ref={positionShotRef} options={{ format: "png", quality: 1, result: "tmpfile" }}>
@@ -273,7 +288,10 @@ export default function DexTokenScreen() {
           </LinearGradient>
           <View style={styles.tabs}>{INFO_TABS.map(tab => <Pressable key={tab} style={[styles.tab, infoTab === tab && styles.tabActive]} onPress={() => setInfoTab(tab)}><Text numberOfLines={1} style={[styles.tabText, infoTab === tab && styles.tabTextActive]}>{tab === "Transactions" ? `${trades?.length ?? 0} Transactions` : tab}</Text></Pressable>)}</View>
           {infoTab === "Transactions" ? (
-            (trades?.length ? trades.slice(0, 14) : []).map((tx: IntelTransfer) => (
+            tradesLoading && !(trades?.length) ? (
+              <ActivityIndicator color={COLORS.stonkGreen} style={{ marginVertical: 18 }} />
+            ) : trades?.length ? (
+            trades.slice(0, 14).map((tx: IntelTransfer) => (
               <View style={styles.txRow} key={tx.id || tx.signature}>
                 <View>
                   <Text style={styles.txName}>
@@ -284,10 +302,13 @@ export default function DexTokenScreen() {
 
                 <View style={{ alignItems: "flex-end" }}>
                   <Text style={[styles.txAmount, tx.side === "sell" && { color: COLORS.sell }]}>{signedUsd(tx.side === "sell" ? -tx.usd : tx.usd)}</Text>
-                  <Text style={styles.txTime}>{formatTokenAmount(tx.amount)} at {formatMc(marketCapUsd)}</Text>
+                  <Text style={styles.txTime}>{formatTokenAmount(tx.amount)} {ticker.replace(/^\$/, "")}</Text>
                 </View>
               </View>
             ))
+            ) : (
+              <Text style={styles.chartEmpty}>No recent trades</Text>
+            )
           ) : (
             <TokenInfoPanel info={tokenInfo} />
           )}
@@ -341,7 +362,10 @@ const styles = StyleSheet.create({
   headerRight: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 },
   tokenHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }, tokenAvatar: { width: 60, height: 60, borderRadius: 30, backgroundColor: COLORS.stonkDarkestB, alignItems: "center", justifyContent: "center" }, tokenEmoji: { fontSize: 32 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 5 }, tokenName: { fontFamily: FONTS.regular, fontSize: 18, fontWeight: "700", color: COLORS.white, flexShrink: 1 }, symbol: { color: COLORS.grey, fontFamily: FONTS.regular, marginTop: 5 }, marketInfo: { alignItems: "flex-end" }, marketLabel: { color: COLORS.grey, fontSize: 10 }, marketValue: { color: COLORS.white, fontSize: 19, fontWeight: "700" }, change: { fontSize: 11, marginTop: 3 },
-  chart: { marginHorizontal: -4, marginTop: 4, alignItems: "center" }, periodRow: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", marginBottom: 15, gap: 3 }, periodButton: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 3, backgroundColor: COLORS.stonkDarkG }, selectedPeriod: { backgroundColor: COLORS.stonkGreen }, periodText: { color: COLORS.grey, fontSize: 11 }, selectedText: { color: COLORS.black, fontWeight: "700" },
+  chart: { marginHorizontal: -4, marginTop: 4, alignItems: "center", minHeight: 255 },
+  chartOverlay: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
+  chartEmpty: { color: COLORS.grey, fontSize: 12, textAlign: "center", marginVertical: 16 },
+  periodRow: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", marginBottom: 15, gap: 3 }, periodButton: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 3, backgroundColor: COLORS.stonkDarkG }, selectedPeriod: { backgroundColor: COLORS.stonkGreen }, periodText: { color: COLORS.grey, fontSize: 11 }, selectedText: { color: COLORS.black, fontWeight: "700" },
   positionOuter: { borderRadius: 12, padding: 4, marginBottom: 18 }, positionInner: { backgroundColor: "#1C1C1C", borderRadius: 9, padding: 15 }, positionTitle: { color: COLORS.stonkGreen, fontSize: 13, fontFamily: FONTS.regular }, demoLabel: { color: COLORS.grey, fontSize: 10 }, positionValues: { flexDirection: "row", justifyContent: "space-between", marginTop: 7 }, positionAmount: { color: COLORS.white, fontSize: 23, fontWeight: "700" }, muted: { color: COLORS.grey, fontSize: 12, marginTop: 4 }, pnl: { color: COLORS.buy, fontSize: 19, fontWeight: "700" }, pnlBadge: { color: COLORS.buy, fontSize: 11, marginTop: 5 }, positionFoot: { flexDirection: "row", justifyContent: "space-between", marginTop: 20, flexWrap: "wrap" }, white: { color: COLORS.white, fontFamily: FONTS.regular, fontSize: 12 }, share: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, paddingVertical: 10, minHeight: 34 }, shareText: { color: COLORS.white, fontFamily: FONTS.regular, fontSize: 12 },
   tabs: { flexDirection: "row", borderWidth: 1, borderColor: COLORS.stonkGreen, borderRadius: 5, padding: 3, gap: 3, marginBottom: 8 }, tab: { flex: 1, backgroundColor: COLORS.stonkDarkG, borderRadius: 4, alignItems: "center", justifyContent: "center", paddingVertical: 10 }, tabActive: { backgroundColor: COLORS.stonkLightG }, tabText: { color: COLORS.white, fontSize: 10, fontFamily: FONTS.regular }, tabTextActive: { color: COLORS.black, fontWeight: "700" },
   txRow: { backgroundColor: "#1A1A1A", borderRadius: 7, padding: 12, marginBottom: 5, flexDirection: "row", justifyContent: "space-between" }, txName: { color: COLORS.white, fontSize: 15 }, txTime: { color: COLORS.grey, fontSize: 10, marginTop: 5 }, txAmount: { color: COLORS.buy, fontSize: 13 }, infoBox: { backgroundColor: "#1A1A1A", borderRadius: 8, padding: 20, gap: 8 },
