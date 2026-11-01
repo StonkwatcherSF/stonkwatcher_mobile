@@ -21,12 +21,23 @@ import {
 } from "lucide-react-native";
 import { BlurView } from "expo-blur";
 import { COLORS, FONTS } from "../constants/theme";
+import TokenImage from "./TokenImage";
+import { usePortfolio, positionPnl, positionValue } from "./PortfolioContext";
+import { useTokenMarket } from "../hooks/useTokenMarket";
+import { MOCK_TRADE_FEE } from "../lib/config";
+import { compactUsd, formatPrice, formatTokenAmount, prettySymbol } from "../lib/format";
+import { isSolanaAddress } from "../lib/solana";
 
 type TradeMode = "buy" | "sell";
 
 type Props = {
     mode: TradeMode;
     tokenId?: string;
+    tokenName?: string;
+    symbol?: string;
+    imageUrl?: string | null;
+    priceUsd?: number | null;
+    marketCapUsd?: number | null;
     onClose?: () => void;
     onTradeConfirmed?: (
         mode: TradeMode,
@@ -34,11 +45,6 @@ type Props = {
         amount: number
     ) => void;
 };
-
-const DEMO_PRICE = 0.0004238;
-const DEMO_BALANCE = 93737.34;
-const DEMO_HOLDINGS_VALUE = 3629.35;
-const DEMO_FEE = 0.95;
 
 const tokenNames: Record<string, string> = {
     "stonk-watcher": "Stonk Watcher",
@@ -54,23 +60,22 @@ const formatMoney = (value: number) =>
         maximumFractionDigits: 2,
     });
 
-const formatTokens = (value: number) => {
-    if (value >= 1_000_000) {
-        return `${(value / 1_000_000).toFixed(2)}M`;
-    }
-    if (value >= 1_000) {
-        return `${(value / 1_000).toFixed(2)}K`;
-    }
-    return value.toFixed(2);
-};
-
 export default function TradeSheet({
     mode,
     tokenId = "stonk-watcher",
+    tokenName: tokenNameProp,
+    symbol: symbolProp,
+    imageUrl,
+    priceUsd,
+    marketCapUsd,
     onClose,
     onTradeConfirmed,
 }: Props) {
     const router = useRouter();
+    const { cash, buy, sell, positionFor } = usePortfolio();
+    const mint = isSolanaAddress(tokenId) ? tokenId : "";
+    const { data: detail } = useTokenMarket(mint || undefined);
+    const holding = mint ? positionFor(mint) : undefined;
     const handleClose = () => {
         if (onClose) {
             onClose();
@@ -144,15 +149,33 @@ export default function TradeSheet({
     ).current;
     const isBuy = mode === "buy";
     const tokenName =
-        tokenNames[tokenId] ??
+        tokenNameProp ||
+        detail?.token?.name ||
+        tokenNames[tokenId] ||
         tokenId
             .split("-")
             .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
             .join(" ");
+    const symbol = (symbolProp || detail?.token?.symbol || "TOKEN").replace(/^\$/, "");
+    const livePrice =
+        priceUsd ||
+        detail?.market?.priceUsd ||
+        detail?.token?.market?.priceUsd ||
+        holding?.lastPriceUsd ||
+        0;
+    const liveMcap =
+        marketCapUsd ||
+        detail?.market?.marketCapUsd ||
+        detail?.token?.market?.marketCapUsd ||
+        null;
+    const logo = imageUrl || detail?.token?.imageUrl || detail?.token?.logoUrl;
+    const sellPnl = holding ? positionPnl(holding, livePrice) : null;
 
     const available = isBuy
-        ? DEMO_BALANCE
-        : DEMO_HOLDINGS_VALUE;
+        ? cash
+        : holding
+          ? positionValue(holding, livePrice)
+          : 0;
 
     const [amount, setAmount] = useState("");
     const [selectedPercent, setSelectedPercent] =
@@ -173,10 +196,10 @@ export default function TradeSheet({
     const validAmount =
         numericAmount > 0 && numericAmount <= available;
 
-    const tokenAmount = numericAmount / DEMO_PRICE;
+    const tokenAmount = livePrice > 0 ? numericAmount / livePrice : 0;
     const estimatedOutput = Math.max(
         0,
-        numericAmount - DEMO_FEE
+        numericAmount - MOCK_TRADE_FEE
     );
 
     function resetSlider() {
@@ -190,6 +213,29 @@ export default function TradeSheet({
 
     function confirmDemoTrade() {
         if (!validAmount || closingRef.current) return;
+        if (!(livePrice > 0)) {
+            Alert.alert("Demo trade", "No live price yet for this token.");
+            return;
+        }
+        if (!mint) {
+            Alert.alert("Demo trade", "Open a live token to paper-trade it.");
+            return;
+        }
+
+        const result = (isBuy ? buy : sell)({
+            mint,
+            name: tokenName,
+            symbol,
+            imageUrl: logo,
+            amountUsd: numericAmount,
+            priceUsd: livePrice,
+            marketCapUsd: liveMcap,
+        });
+        if (!result.ok) {
+            Alert.alert("Demo trade", result.error);
+            resetSlider();
+            return;
+        }
 
         closingRef.current = true;
 
@@ -340,7 +386,7 @@ export default function TradeSheet({
                 >
                     <View style={styles.header}>
                         <View style={styles.tokenIcon}>
-                            <Text style={styles.tokenIconText}>S</Text>
+                            <TokenImage uri={logo} mint={mint || tokenId} style={styles.tokenIconImage} />
                         </View>
 
                         <View style={styles.tokenDetails}>
@@ -358,16 +404,16 @@ export default function TradeSheet({
                             </View>
 
                             <Text style={styles.marketCap}>
-                                $52.67K
+                                {compactUsd(liveMcap)}
                             </Text>
                         </View>
 
                         <View style={styles.priceBlock}>
                             <Text style={styles.tokenPrice}>
-                                $0.0004238
+                                {formatPrice(livePrice)}
                             </Text>
                             <Text style={styles.change}>
-                                ▲ 20.61%
+                                Demo paper trade
                             </Text>
                         </View>
 
@@ -388,7 +434,7 @@ export default function TradeSheet({
 
                         <View style={styles.tokenQuantityRow}>
                             <Text style={styles.tokenQuantity}>
-                                {formatTokens(tokenAmount)} STWC
+                                {formatTokenAmount(tokenAmount)} {prettySymbol(symbol)}
                             </Text>
                             <ArrowLeftRight
                                 size={17}
@@ -404,11 +450,15 @@ export default function TradeSheet({
                         <Text style={styles.availableValue}>
                             ${formatMoney(available)}
                         </Text>
-                        {!isBuy && (
+                        {!isBuy && sellPnl ? (
                             <Text style={styles.profitText}>
-                                +$1,532.52
+                                {sellPnl.pnl >= 0 ? "+" : ""}
+                                {sellPnl.pnl.toLocaleString("en-US", {
+                                    style: "currency",
+                                    currency: "USD",
+                                })}
                             </Text>
-                        )}
+                        ) : null}
                     </View>
 
                     <View style={styles.percentRow}>
@@ -488,7 +538,7 @@ export default function TradeSheet({
                                 Fee
                             </Text>
                             <Text style={styles.detailValue}>
-                                {validAmount ? "$0.95" : "–"}
+                                {validAmount ? `$${MOCK_TRADE_FEE.toFixed(2)}` : "–"}
                             </Text>
                         </View>
 
@@ -515,9 +565,9 @@ export default function TradeSheet({
                             >
                                 {validAmount
                                     ? isBuy
-                                        ? `${formatTokens(
-                                            estimatedOutput / DEMO_PRICE
-                                        )} STWC`
+                                        ? `${formatTokenAmount(
+                                            livePrice > 0 ? estimatedOutput / livePrice : 0
+                                        )} ${prettySymbol(symbol)}`
                                         : `$${formatMoney(estimatedOutput)}`
                                     : "–"}
                             </Text>
@@ -595,7 +645,7 @@ export default function TradeSheet({
                     </View>
 
                     <Text style={styles.demoNote}>
-                        Demo interface only. No real funds or trades.
+                        Demo paper trade only. Buys show in your portfolio and position.
                     </Text>
                 </ScrollView>
             </Animated.View>
@@ -642,6 +692,12 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         marginRight: 10,
+        overflow: "hidden",
+    },
+    tokenIconImage: {
+        width: "100%",
+        height: "100%",
+        borderRadius: 27,
     },
     tokenIconText: {
         fontSize: 28,

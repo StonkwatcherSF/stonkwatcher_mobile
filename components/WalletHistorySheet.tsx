@@ -3,7 +3,6 @@ import React, { useEffect, useRef } from "react";
 import {
     Animated,
     Dimensions,
-    Image,
     Modal,
     PanResponder,
     Platform,
@@ -17,10 +16,11 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { BadgeCheck } from "lucide-react-native";
 import { COLORS, FONTS } from "../constants/theme";
+import TokenImage from "./TokenImage";
+import { usePortfolio } from "./PortfolioContext";
+import { formatTokenAmount, formatTxTime, formatUsdMoney, prettySymbol } from "../lib/format";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
-
-const PLACEHOLDER = require("../assets/images/placeholder.png");
 
 type Props = {
     visible: boolean;
@@ -29,43 +29,15 @@ type Props = {
 
 type Transaction = {
     id: string;
+    mint?: string;
     name: string;
     action: string;
     date: string;
     amount: string;
     detail: string;
+    imageUrl?: string | null;
     positive: boolean;
 };
-
-const TRANSACTIONS: Transaction[] = [
-    {
-        id: "tx1",
-        name: "Stonk Watcher",
-        action: "Sell",
-        date: "10/24/26 3:22 PM",
-        amount: "+$2,302.42",
-        detail: "Sold at $0.0₃344",
-        positive: true,
-    },
-    {
-        id: "tx2",
-        name: "Stonk Watcher",
-        action: "Received",
-        date: "10/24/26 3:22 PM",
-        amount: "$2.23",
-        detail: "▲ 20.61%",
-        positive: true,
-    },
-    {
-        id: "tx3",
-        name: "Stonk Watcher",
-        action: "Sell",
-        date: "10/24/26 3:22 PM",
-        amount: "-$2,302.42",
-        detail: "Sold at $0.0₃344",
-        positive: false,
-    },
-];
 
 
 
@@ -140,10 +112,10 @@ function TransactionRow({
 
             {/* TOKEN AVATAR */}
             <View style={styles.tokenIcon}>
-                <Image
-                    source={PLACEHOLDER}
+                <TokenImage
+                    uri={transaction.imageUrl}
+                    mint={transaction.mint}
                     style={styles.tokenImage}
-                    resizeMode="cover"
                 />
             </View>
 
@@ -200,6 +172,18 @@ export default function WalletHistorySheet({
     visible,
     onClose,
 }: Props) {
+    const { trades } = usePortfolio();
+    const transactions: Transaction[] = trades.map((trade) => ({
+        id: trade.id,
+        mint: trade.mint,
+        name: trade.name,
+        action: trade.mode === "buy" ? "Buy" : "Sell",
+        date: formatTxTime(trade.at),
+        amount: `${trade.mode === "sell" ? "+" : "-"}${formatUsdMoney(trade.usd)}`,
+        detail: `${formatTokenAmount(trade.tokens)} ${prettySymbol(trade.symbol)}`,
+        imageUrl: trade.imageUrl,
+        positive: trade.mode === "sell",
+    }));
     const translateY = useRef(
         new Animated.Value(SCREEN_HEIGHT)
     ).current;
@@ -366,12 +350,16 @@ export default function WalletHistorySheet({
                         bounces={false}
                         contentContainerStyle={styles.list}
                     >
-                        {TRANSACTIONS.map((transaction) => (
+                        {transactions.length ? (
+                            transactions.map((transaction) => (
                             <TransactionRow
                                 key={transaction.id}
                                 transaction={transaction}
                             />
-                        ))}
+                            ))
+                        ) : (
+                            <Text style={styles.emptyText}>No demo trades yet</Text>
+                        )}
                     </ScrollView>
                 </Animated.View>
             </View>
@@ -498,5 +486,13 @@ const styles = StyleSheet.create({
 
     positive: {
         color: COLORS.buy,
+    },
+
+    emptyText: {
+        color: COLORS.grey,
+        fontFamily: FONTS.regular,
+        fontSize: 13,
+        textAlign: "center",
+        paddingVertical: 28,
     },
 });

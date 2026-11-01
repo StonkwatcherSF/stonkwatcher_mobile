@@ -6,7 +6,6 @@ import {
   ScrollView,
   Pressable,
   StyleSheet,
-  useWindowDimensions,
   Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -20,13 +19,10 @@ import Svg, {
   Stop,
 } from "react-native-svg";
 import {
-  Send,
-  Settings,
   CalendarDays,
   Plus,
   MoreVertical,
   ArrowDownUp,
-  History,
   BadgeCheck,
   Wallet,
 } from "lucide-react-native";
@@ -41,7 +37,11 @@ import GlassButton from "../../../components/GlassButton";
 import WalletProfile from "../../../components/WalletProfile";
 import WalletMoreSheet from "../../../components/WalletMoreSheet";
 import WalletHistorySheet from "../../../components/WalletHistorySheet";
+import TokenImage from "../../../components/TokenImage";
 import { useNavScroll } from "../../../components/NavAnimationContext";
+import { usePortfolio, positionPnl, type MockClosedPosition, type MockPosition } from "../../../components/PortfolioContext";
+import { formatTokenAmount, formatUsdMoney, prettySymbol } from "../../../lib/format";
+import { dexHref } from "../../../lib/nav";
 // =====================================================
 // TYPES
 // =====================================================
@@ -54,114 +54,55 @@ type SortOrder = "recent" | "top";
 
 type Holding = {
   id: string;
+  mint?: string;
   name: string;
   symbol: string;
   quantity: string;
   value: string;
+  valueUsd: number;
   change: number;
-  icon: string;
-  background: string;
+  imageUrl?: string | null;
   date: string;
 };
 
-// =====================================================
-// DEMO DATA
-// =====================================================
-
-// These are sample positions for UI development.
-// Replace with actual API data later.
-
-const holdings: Holding[] = [
-  {
-    id: "stonk",
-    name: "Stonk Watcher",
-    symbol: "$STWC",
-    quantity: "2.7M",
-    value: "$2,302.42",
-    change: 20.61,
-    icon: "👁️",
-    background: "#002D1F",
-    date: "2026-10-22T10:00:00",
-  },
-  {
-    id: "zcat",
-    name: "Anonymous Cat",
-    symbol: "$ZCAT",
-    quantity: "45.7K",
-    value: "$1,252.71",
-    change: -10.83,
-    icon: "🐱",
-    background: "#33100B",
-    date: "2026-10-21T15:00:00",
-  },
-  {
-    id: "mask",
-    name: "Nullmask",
-    symbol: "$MASK",
-    quantity: "1.5M",
-    value: "$4,689.12",
-    change: -8.11,
-    icon: "🎭",
-    background: "#33100B",
-    date: "2026-10-20T11:00:00",
-  },
-  {
-    id: "superinu",
-    name: "Super Inu",
-    symbol: "$SI",
-    quantity: "1.1M",
-    value: "$15,143.38",
-    change: 15.93,
-    icon: "🐕",
-    background: "#002D1F",
-    date: "2026-10-19T08:00:00",
-  },
-  {
-    id: "allinu",
-    name: "ALLINU",
-    symbol: "$ALLINU",
-    quantity: "13.6M",
-    value: "$725.67",
-    change: 30.82,
-    icon: "🐶",
-    background: "#002D1F",
-    date: "2026-10-18T09:00:00",
-  },
-];
-
-const closedHoldings: Holding[] = [
-  {
-    id: "closed-stonk",
-    name: "Stonk Watcher",
-    symbol: "$STWC",
-    quantity: "1.2M",
-    value: "$482.35",
-    change: 12.45,
-    icon: "👁️",
-    background: "#002D1F",
-    date: "2026-10-22T10:00:00",
-  },
-  {
-    id: "closed-zcat",
-    name: "Anonymous Cat",
-    symbol: "$ZCAT",
-    quantity: "25.4K",
-    value: "$125.80",
-    change: -8.32,
-    icon: "🐱",
-    background: "#33100B",
-    date: "2026-10-21T15:00:00",
-  },
-];
 const PERIODS: Period[] = ["24h", "1w", "1m", "1y"];
+
+function fromOpenPosition(position: MockPosition): Holding {
+  const stats = positionPnl(position);
+  return {
+    id: position.mint,
+    mint: position.mint,
+    name: position.name,
+    symbol: prettySymbol(position.symbol),
+    quantity: formatTokenAmount(position.tokens),
+    value: formatUsdMoney(stats.value),
+    valueUsd: stats.value,
+    change: stats.pct,
+    imageUrl: position.imageUrl,
+    date: position.updatedAt || position.openedAt,
+  };
+}
+
+function fromClosedPosition(position: MockClosedPosition): Holding {
+  return {
+    id: `${position.mint}-${position.closedAt}`,
+    mint: position.mint,
+    name: position.name,
+    symbol: prettySymbol(position.symbol),
+    quantity: formatTokenAmount(position.tokens),
+    value: formatUsdMoney(Math.abs(position.pnlUsd)),
+    valueUsd: Math.abs(position.pnlUsd),
+    change: position.pnlPct,
+    imageUrl: position.imageUrl,
+    date: position.closedAt,
+  };
+}
 
 // =====================================================
 // CHART COMPONENT
 // =====================================================
 
 function PortfolioChart() {
-  const { width } = useWindowDimensions();
-  const chartWidth = Math.max(width - 52, 260);
   const chartHeight = 240;
 
   return (
@@ -241,17 +182,8 @@ function PortfolioChart() {
 // TOKEN POSITION CARD
 // =====================================================
 
-// Scale the horizontal tint by the position's dollar value.
-// The largest demo position begins transitioning earlier; smaller ones
-// stay black longer before reaching their green/red tint on the right.
-const MAX_POSITION_VALUE = Math.max(
-  ...holdings.map((item) => Number(item.value.replace(/[^\d.]/g, ""))),
-  ...closedHoldings.map((item) => Number(item.value.replace(/[^\d.]/g, "")))
-);
-
-function getPositionGradient(token: Holding) {
-  const value = Number(token.value.replace(/[^\d.]/g, "")) || 0;
-  const proportion = Math.min(1, Math.max(0, value / MAX_POSITION_VALUE));
+function getPositionGradient(token: Holding, maxValue: number) {
+  const proportion = Math.min(1, Math.max(0, token.valueUsd / Math.max(maxValue, 1)));
   const colorStart = 0.76 - proportion * 0.57;
   const positive = token.change >= 0;
 
@@ -266,14 +198,19 @@ function getPositionGradient(token: Holding) {
 function PositionCard({
   token,
   variant = "open",
+  maxValue,
+  onPress,
 }: {
   token: Holding;
   variant?: "open" | "closed";
+  maxValue: number;
+  onPress?: () => void;
 }) {
   const isPositive = token.change >= 0;
-  const gradient = getPositionGradient(token);
+  const gradient = getPositionGradient(token, maxValue);
 
   return (
+    <Pressable onPress={onPress} disabled={!onPress}>
     <LinearGradient
       colors={gradient.colors}
       locations={gradient.locations}
@@ -282,7 +219,7 @@ function PositionCard({
       style={styles.positionCard}
     >
       <View style={styles.positionIcon}>
-        <Image source={PLACEHOLDER} style={styles.positionImage} resizeMode="cover" />
+        <TokenImage uri={token.imageUrl} mint={token.mint} style={styles.positionImage} />
       </View>
 
       <View style={styles.positionInfo}>
@@ -359,6 +296,7 @@ function PositionCard({
         </View>
       </View>
     </LinearGradient>
+    </Pressable>
   );
 }
 
@@ -426,8 +364,19 @@ export default function WalletScreen() {
 
   const [sortOrder, setSortOrder] =
     useState<SortOrder>("recent");
+  const { cash, positions, closed } = usePortfolio();
+  const holdings = useMemo(() => positions.map(fromOpenPosition), [positions]);
+  const closedHoldings = useMemo(() => closed.map(fromClosedPosition), [closed]);
+  const holdingsValue = useMemo(
+    () => holdings.reduce((sum, row) => sum + row.valueUsd, 0),
+    [holdings],
+  );
+  const openPnl = useMemo(
+    () => positions.reduce((sum, row) => sum + positionPnl(row).pnl, 0),
+    [positions],
+  );
+  const portfolioTotal = cash + holdingsValue;
 
-  // Sort using the sample timestamps.
   const sortedHoldings = useMemo(() => {
     const selectedHoldings =
       positionTab === "open" ? holdings : closedHoldings;
@@ -445,7 +394,8 @@ export default function WalletScreen() {
         new Date(b.date).getTime() - new Date(a.date).getTime()
       );
     });
-  }, [sortOrder, positionTab]);
+  }, [sortOrder, positionTab, holdings, closedHoldings]);
+  const maxPositionValue = Math.max(1, ...sortedHoldings.map((row) => row.valueUsd));
 
   const toggleSort = () => {
     setSortOrder((current) =>
@@ -482,12 +432,13 @@ export default function WalletScreen() {
           <View style={styles.chartHeader}>
             <View>
               <Text style={styles.balance}>
-                $93,737.34
+                {formatUsdMoney(portfolioTotal)}
               </Text>
 
               <View style={styles.pnlRow}>
-                <Text style={styles.pnlPositive}>
-                  +$11,827.63
+                <Text style={[styles.pnlPositive, openPnl < 0 && { color: COLORS.sell }]}>
+                  {openPnl >= 0 ? "+" : ""}
+                  {formatUsdMoney(openPnl).replace("$-", "-$")}
                 </Text>
 
                 <Text style={styles.pnlPeriod}>
@@ -531,7 +482,7 @@ export default function WalletScreen() {
               />
 
               <Text style={styles.walletValue}>
-                $1,500.14
+                {formatUsdMoney(cash)}
               </Text>
             </View>
 
@@ -642,25 +593,23 @@ export default function WalletScreen() {
 
         {/* Positions list */}
 
-        {positionTab === "open" ? (
+        {sortedHoldings.length ? (
           <View style={styles.positionsList}>
             {sortedHoldings.map((token) => (
               <PositionCard
                 key={token.id}
                 token={token}
-                variant="open"
+                variant={positionTab}
+                maxValue={maxPositionValue}
+                onPress={token.mint ? () => router.push(dexHref(token.mint!)) : undefined}
               />
             ))}
           </View>
         ) : (
-          <View style={styles.positionsList}>
-            {sortedHoldings.map((token) => (
-              <PositionCard
-                key={token.id}
-                token={token}
-                variant="closed"
-              />
-            ))}
+          <View style={styles.emptyPositions}>
+            <Text style={styles.emptyText}>
+              {positionTab === "open" ? "No open positions" : "No closed positions"}
+            </Text>
           </View>
         )}
       </ScrollView>

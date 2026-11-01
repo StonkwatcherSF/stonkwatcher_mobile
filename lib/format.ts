@@ -1,3 +1,12 @@
+export function formatUsdMoney(value?: number | null) {
+  if (value == null || !Number.isFinite(value)) return "$0.00";
+  const sign = value < 0 ? "-" : "";
+  return `${sign}$${Math.abs(value).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 export function compactUsd(value?: number | null, digits = 2) {
   if (value == null || !Number.isFinite(value)) return "—";
   const abs = Math.abs(value);

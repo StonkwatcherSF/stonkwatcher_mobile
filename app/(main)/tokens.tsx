@@ -23,7 +23,8 @@ import { useNavScroll } from "../../components/NavAnimationContext";
 import TokenImage from "../../components/TokenImage";
 import { useRouter } from "expo-router";
 import { ALL_QUOTES, FALLBACK_QUOTES, type SelectedQuote } from "../../lib/config";
-import { formatMc, formatPrice } from "../../lib/format";
+import { formatMc, formatPrice, formatUsdMoney } from "../../lib/format";
+import { usePortfolio } from "../../components/PortfolioContext";
 import { mergeQuoteOptions, matchesQuote, quotesFromTokens } from "../../lib/quotes";
 import { tokenMint, truncateAddress } from "../../lib/solana";
 import { dexHref } from "../../lib/nav";
@@ -38,6 +39,7 @@ type Tab = "Trending" | "New";
 export default function TokensScreen() {
   const router = useRouter();
   const navScroll = useNavScroll();
+  const { cash } = usePortfolio();
 
   const [activeTab, setActiveTab] =
     useState<Tab>("Trending");
@@ -96,7 +98,7 @@ export default function TokensScreen() {
             </View>
 
             <Text style={styles.balance}>
-              $93,737.34
+              {formatUsdMoney(cash)}
             </Text>
           </View>
 

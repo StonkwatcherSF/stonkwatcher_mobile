@@ -17,6 +17,7 @@ import WalletHistorySheet from "../../../components/WalletHistorySheet";
 import { useTokenMarket } from "../../../hooks/useTokenMarket";
 import { useOhlcv, type ChartPeriod } from "../../../hooks/useOhlcv";
 import { useTokenInfo, useTokenTrades } from "../../../hooks/useTokenInfo";
+import { usePortfolio, positionPnl } from "../../../components/PortfolioContext";
 import {
   compactUsd,
   formatAge,
@@ -26,6 +27,7 @@ import {
   formatPrice,
   formatTokenAmount,
   formatTxTime,
+  formatUsdMoney,
   prettySymbol,
   signedUsd,
 } from "../../../lib/format";
@@ -142,6 +144,9 @@ export default function DexTokenScreen() {
   const change = tokenMeta?.market?.priceChange24h ?? 0;
   const { data: trades, loading: tradesLoading } = useTokenTrades(mint, tokenMeta?.name, symbol);
   const { data: tokenInfo, loading: infoLoading } = useTokenInfo(mint, infoTab === "Token Info");
+  const { cash, positionFor } = usePortfolio();
+  const holding = positionFor(mint);
+  const holdingStats = holding ? positionPnl(holding, priceUsd) : null;
 
   if (!isSolanaAddress(mint)) {
     return <SafeAreaView style={styles.root}><Pressable onPress={() => router.back()} style={styles.back}><ArrowLeft color={COLORS.white} /></Pressable><Text style={styles.heading}>Token not found</Text></SafeAreaView>;
@@ -203,7 +208,7 @@ export default function DexTokenScreen() {
             <View style={styles.headerRight}>
               <View style={styles.balanceGroup}>
                 <Image source={PLACEHOLDER} style={styles.robotImage} resizeMode="cover" />
-                <Text style={styles.balanceAmount} numberOfLines={1}>$93,737.34</Text>
+                <Text style={styles.balanceAmount} numberOfLines={1}>{formatUsdMoney(cash)}</Text>
               </View>
               <Pressable
                 style={styles.round}
@@ -243,12 +248,32 @@ export default function DexTokenScreen() {
             ) : null}
           </View>
           <View style={styles.periodRow}>{PERIODS.map(p => <Pressable key={p} onPress={() => setPeriod(p)} style={[styles.periodButton, period === p && styles.selectedPeriod]}><Text style={[styles.periodText, period === p && styles.selectedText]}>{p}</Text></Pressable>)}<SlidersHorizontal size={17} color={COLORS.grey} style={{ marginLeft: 5 }} /></View>
+          {holding && holdingStats ? (
           <LinearGradient colors={["#181C09", "#262D05"]} style={styles.positionOuter}>
             <ViewShot ref={positionShotRef} options={{ format: "png", quality: 1, result: "tmpfile" }}>
-              <View style={styles.positionInner} collapsable={false}><Text style={styles.positionTitle}>Your Position <Text style={styles.demoLabel}>(Demo)</Text></Text><View style={styles.positionValues}><View><Text style={styles.positionAmount}>$3,629.35</Text><Text style={styles.muted}>20.35 {token.symbol}</Text></View><View style={{ alignItems: "flex-end" }}><Text style={styles.pnl}>+$1,532.52</Text><Text style={styles.pnlBadge}>▲ 20.61%</Text></View></View><View style={styles.positionFoot}><Text style={styles.muted}>Invested  <Text style={styles.white}>$529.10</Text></Text><Text style={styles.muted}>Avg. entry  <Text style={styles.white}>$12.43K MC</Text></Text></View></View>
+              <View style={styles.positionInner} collapsable={false}>
+                <Text style={styles.positionTitle}>Your Position <Text style={styles.demoLabel}>(Demo)</Text></Text>
+                <View style={styles.positionValues}>
+                  <View>
+                    <Text style={styles.positionAmount}>{formatUsdMoney(holdingStats.value)}</Text>
+                    <Text style={styles.muted}>{formatTokenAmount(holding.tokens)} {token.symbol}</Text>
+                  </View>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={[styles.pnl, holdingStats.pnl < 0 && { color: COLORS.sell }]}>{signedUsd(holdingStats.pnl)}</Text>
+                    <Text style={[styles.pnlBadge, holdingStats.pnl < 0 && { color: COLORS.sell }]}>
+                      {holdingStats.pct >= 0 ? "▲" : "▼"} {Math.abs(holdingStats.pct).toFixed(2)}%
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.positionFoot}>
+                  <Text style={styles.muted}>Invested  <Text style={styles.white}>{formatUsdMoney(holding.investedUsd)}</Text></Text>
+                  <Text style={styles.muted}>Avg. entry  <Text style={styles.white}>{formatMc(holding.avgEntryMc)}</Text></Text>
+                </View>
+              </View>
             </ViewShot>
             <Pressable style={styles.share} disabled={sharingPosition} onPress={handleSharePosition} accessibilityRole="button" accessibilityLabel="Share your position"><Send color={COLORS.white} size={14} /><Text style={styles.shareText}>Share</Text></Pressable>
           </LinearGradient>
+          ) : null}
           <View style={styles.tabs}>{INFO_TABS.map(tab => <Pressable key={tab} style={[styles.tab, infoTab === tab && styles.tabActive]} onPress={() => setInfoTab(tab)}><Text numberOfLines={1} style={[styles.tabText, infoTab === tab && styles.tabTextActive]}>{tab === "Transactions" ? `${trades?.length ?? 0} Transactions` : tab}</Text></Pressable>)}</View>
           {infoTab === "Transactions" ? (
             tradesLoading && !(trades?.length) ? (
@@ -285,6 +310,11 @@ export default function DexTokenScreen() {
         <TradeSheet
           mode={tradeMode}
           tokenId={mint}
+          tokenName={token.name}
+          symbol={token.symbol}
+          imageUrl={logoUri}
+          priceUsd={priceUsd}
+          marketCapUsd={marketCapUsd}
           onClose={() => setTradeMode(null)}
           onTradeConfirmed={(mode, tokenId, amount) => {
             setConfirmedTrade({ mode, tokenId, amount });

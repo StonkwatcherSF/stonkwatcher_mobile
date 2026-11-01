@@ -13,13 +13,18 @@ import {
 import {
   SettingsProvider,
 } from "../../components/SettingsContext";
+import {
+  PortfolioProvider,
+} from "../../components/PortfolioContext";
 
 export default function MainLayout() {
   return (
     <NavAnimationProvider>
       <BlacklistProvider>
         <SettingsProvider>
-          <MainContent />
+          <PortfolioProvider>
+            <MainContent />
+          </PortfolioProvider>
         </SettingsProvider>
       </BlacklistProvider>
     </NavAnimationProvider>
