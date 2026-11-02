@@ -1,14 +1,17 @@
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
   ScrollView,
   Pressable,
   StyleSheet,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import * as Clipboard from "expo-clipboard";
+import * as Haptics from "expo-haptics";
 import {
   ChevronLeft,
   ChevronRight,
@@ -25,68 +28,75 @@ import {
 import WalletProfile from "../../../components/WalletProfile";
 import GlassButton from "../../../components/GlassButton";
 import WalletHistorySheet from "../../../components/WalletHistorySheet";
+import TokenImage from "../../../components/TokenImage";
+import {
+  mintPnl,
+  monthPnlByDay,
+  positionPnl,
+  utcDateKey,
+  usePortfolio,
+  type MockPosition,
+  type MockTrade,
+} from "../../../components/PortfolioContext";
+import { formatTokenAmount, formatUsdMoney, prettySymbol } from "../../../lib/format";
+import { truncateAddress } from "../../../lib/solana";
 
 type CalendarMode = "calendar" | "panel";
 
-const DEMO_PNL: Record<number, number> = {
-  1: 10.2,
-  2: 12.2,
-  3: 20.5,
-  4: 50.2,
-  5: 20,
-  6: 10.1,
-  7: 30.4,
-  8: 10.5,
-  9: 50,
-  10: 20.2,
-  11: 10.2,
-  13: 20,
-  14: 30.4,
-  15: 20.2,
-  16: 10.5,
-  17: 50,
-  18: 20.2,
-  19: 10.2,
-  20: 12.2,
-  22: 20,
-  24: 50,
-  25: 2360,
-  26: 20.2,
-  27: 50,
-  28: 50,
-  29: 20,
-  30: 10.5,
-};
+function utcMonthStart(date = new Date()) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+}
 
-const FEE_METRICS = [
-  { label: "24h", amount: "13.01 STONK", value: "$2.95" },
-  { label: "All Time", amount: "687.36 STONK", value: "$155.76" },
-  { label: "Holding", amount: "21.51M", value: "$756.51" },
-];
-
-function formatMoney(value: number) {
-  return value >= 1000
-    ? `+$${(value / 1000).toFixed(2)}K`
-    : `+$${value.toFixed(2)}`;
+function formatSignedUsd(value: number) {
+  const abs = Math.abs(value);
+  const compact =
+    abs >= 1000 ? `$${(abs / 1000).toFixed(2)}K` : formatUsdMoney(abs);
+  if (value > 0) return `+${compact}`;
+  if (value < 0) return `-${compact}`;
+  return compact;
 }
 
 function FeeShareDashboard({
+  position,
+  trades,
   onSnapshot,
 }: {
+  position: MockPosition;
+  trades: MockTrade[];
   onSnapshot: () => void;
 }) {
+  const stats = positionPnl(position);
+  const latestDay = utcDateKey(position.updatedAt || position.openedAt);
+  const pnl24h = mintPnl(trades, position.mint, latestDay) + stats.pnl;
+  const pnlAll = mintPnl(trades, position.mint) + stats.pnl;
+  const symbol = prettySymbol(position.symbol) || position.symbol;
+  const metrics = [
+    { label: "24h", amount: "0", value: formatSignedUsd(pnl24h) },
+    { label: "All Time", amount: "0", value: formatSignedUsd(pnlAll) },
+    { label: "Holding", amount: formatTokenAmount(position.tokens), value: formatUsdMoney(stats.value) },
+  ];
+
+  async function copyMint() {
+    try {
+      await Clipboard.setStringAsync(position.mint);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Alert.alert("Unable to copy", "Could not copy the contract address.");
+    }
+  }
+
   return (
     <View style={styles.feeDashboard}>
       <View style={styles.feeHeader}>
         <View style={styles.tokenIcon}>
-          <Text style={styles.tokenLetter}>S</Text>
+          <TokenImage uri={position.imageUrl} mint={position.mint} style={styles.tokenImage} />
         </View>
 
         <View style={styles.tokenInfo}>
           <View style={styles.tokenTitleRow}>
-            <Text style={styles.tokenName}>STONK</Text>
+            <Text style={styles.tokenName}>{position.name}</Text>
             <View style={styles.greenDot} />
-            <Text style={styles.tokenSymbol}>$STONK</Text>
+            <Text style={styles.tokenSymbol}>{symbol}</Text>
 
             <View style={styles.officialBadge}>
               <BadgeCheck
@@ -94,17 +104,17 @@ function FeeShareDashboard({
                 color={COLORS.stonkLightG}
               />
               <Text style={styles.officialText}>
-                Official
+                Demo
               </Text>
             </View>
           </View>
 
-          <View style={styles.addressRow}>
+          <Pressable onPress={() => void copyMint()} hitSlop={8} style={styles.addressRow}>
             <Text style={styles.address}>
-              6GmAFS...MpUNgx
+              {truncateAddress(position.mint)}
             </Text>
             <Copy size={13} color={COLORS.grey} />
-          </View>
+          </Pressable>
         </View>
 
         <GlassButton
@@ -121,11 +131,11 @@ function FeeShareDashboard({
       </View>
 
       <Text style={styles.feeTitle}>
-        StonkFun Fee Share
+        Paper position
       </Text>
 
       <View style={styles.metrics}>
-        {FEE_METRICS.map((metric) => (
+        {metrics.map((metric) => (
           <View key={metric.label} style={styles.metricCard}>
             <Text style={styles.metricLabel}>
               {metric.label}
@@ -150,39 +160,38 @@ function FeeShareDashboard({
 export default function RewardsCalendar() {
   const router = useRouter();
   const navScroll = useNavScroll();
+  const { positions, trades } = usePortfolio();
 
   const [mode, setMode] =
     useState<CalendarMode>("calendar");
 
-  // NEW: History sheet visibility
   const [historyVisible, setHistoryVisible] =
     useState(false);
 
-  // September 2024 is used for the sample calendar.
-  const [month, setMonth] = useState(
-    new Date(2024, 8, 1)
-  );
+  const [month, setMonth] = useState(utcMonthStart);
 
-  const isDemoMonth =
-    month.getFullYear() === 2024 &&
-    month.getMonth() === 8;
+  const year = month.getUTCFullYear();
+  const monthIndex = month.getUTCMonth();
+  const pnlByDay = useMemo(
+    () => monthPnlByDay(trades, positions, year, monthIndex),
+    [trades, positions, year, monthIndex],
+  );
+  const monthTotal = Object.values(pnlByDay).reduce((sum, value) => sum + value, 0);
+  const profitableDays = Object.values(pnlByDay).filter((value) => value > 0).length;
 
   const monthTitle = month.toLocaleString("en-US", {
     month: "long",
     year: "numeric",
+    timeZone: "UTC",
   });
 
   const daysInMonth = new Date(
-    month.getFullYear(),
-    month.getMonth() + 1,
-    0
-  ).getDate();
+    Date.UTC(year, monthIndex + 1, 0)
+  ).getUTCDate();
 
   const firstDay = new Date(
-    month.getFullYear(),
-    month.getMonth(),
-    1
-  ).getDay();
+    Date.UTC(year, monthIndex, 1)
+  ).getUTCDay();
 
   const cells: (number | null)[] = [
     ...Array(firstDay).fill(null),
@@ -195,9 +204,7 @@ export default function RewardsCalendar() {
   function changeMonth(direction: number) {
     setMonth(
       new Date(
-        month.getFullYear(),
-        month.getMonth() + direction,
-        1
+        Date.UTC(year, monthIndex + direction, 1)
       )
     );
   }
@@ -290,8 +297,8 @@ export default function RewardsCalendar() {
             <Text style={styles.statLabel}>
               Total PnL
             </Text>
-            <Text style={styles.statValue}>
-              {isDemoMonth ? "+$8.50K" : "—"}
+            <Text style={[styles.statValue, monthTotal < 0 && { color: COLORS.sell }]}>
+              {formatSignedUsd(monthTotal)}
             </Text>
           </View>
 
@@ -299,8 +306,8 @@ export default function RewardsCalendar() {
             <Text style={styles.statLabel}>
               Profitable Days/Amount
             </Text>
-            <Text style={styles.statValue}>
-              {isDemoMonth ? "27 | +$8.50K" : "—"}
+            <Text style={[styles.statValue, monthTotal < 0 && { color: COLORS.sell }]}>
+              {`${profitableDays} | ${formatSignedUsd(monthTotal)}`}
             </Text>
           </View>
         </View>
@@ -329,9 +336,7 @@ export default function RewardsCalendar() {
             <View style={styles.calendarGrid}>
               {cells.map((day, index) => {
                 const pnl =
-                  day !== null && isDemoMonth
-                    ? DEMO_PNL[day]
-                    : undefined;
+                  day !== null ? pnlByDay[day] : undefined;
 
                 return (
                   <View
@@ -342,8 +347,10 @@ export default function RewardsCalendar() {
                       <View
                         style={[
                           styles.dayCell,
-                          pnl !== undefined
-                            ? styles.profitableDay
+                          pnl
+                            ? pnl > 0
+                              ? styles.profitableDay
+                              : styles.lossDay
                             : styles.emptyDay,
                         ]}
                       >
@@ -351,15 +358,15 @@ export default function RewardsCalendar() {
                           {day}
                         </Text>
 
-                        {pnl !== undefined && (
+                        {pnl ? (
                           <Text
                             style={styles.dayProfit}
                             numberOfLines={1}
                             adjustsFontSizeToFit
                           >
-                            {formatMoney(pnl)}
+                            {formatSignedUsd(pnl)}
                           </Text>
-                        )}
+                        ) : null}
                       </View>
                     )}
                   </View>
@@ -374,9 +381,9 @@ export default function RewardsCalendar() {
             </Text>
 
             <Text style={styles.panelText}>
-              {isDemoMonth
-                ? "Sample performance for September 2024."
-                : "No demo performance for this month."}
+              {monthTotal
+                ? `${profitableDays} profitable day${profitableDays === 1 ? "" : "s"} · ${formatSignedUsd(monthTotal)}`
+                : "No paper-trade PnL for this month yet."}
             </Text>
           </View>
         )}
@@ -384,19 +391,27 @@ export default function RewardsCalendar() {
         <Text style={styles.rewardsHeading}>
           Rewards{" "}
           <Text style={styles.highlight}>
-            {isDemoMonth ? "24" : "0"}
+            {positions.length}
           </Text>
         </Text>
 
-        {isDemoMonth ? (
-          <FeeShareDashboard
-            onSnapshot={() =>
-              router.push("/wallet/calendar/snapshot")
-            }
-          />
+        {positions.length ? (
+          positions.map((position) => (
+            <FeeShareDashboard
+              key={position.mint}
+              position={position}
+              trades={trades}
+              onSnapshot={() =>
+                router.push({
+                  pathname: "/wallet/calendar/snapshot",
+                  params: { mint: position.mint },
+                })
+              }
+            />
+          ))
         ) : (
           <Text style={styles.noRewards}>
-            No demo rewards for this month.
+            No positions yet. Paper-buy a token to test this calendar.
           </Text>
         )}
       </ScrollView>
@@ -535,6 +550,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.buyBackground,
   },
 
+  lossDay: {
+    backgroundColor: COLORS.sellBackground,
+  },
+
+  tokenImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 25,
+  },
+
   emptyDay: {
     backgroundColor: COLORS.stonkDarkestG,
   },
@@ -613,6 +638,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#071015",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
 
   tokenLetter: {

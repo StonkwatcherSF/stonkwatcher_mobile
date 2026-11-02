@@ -32,6 +32,7 @@ export type MockTrade = {
   usd: number;
   tokens: number;
   priceUsd: number;
+  pnlUsd?: number;
   at: string;
 };
 
@@ -161,6 +162,7 @@ function applyBuy(state: PortfolioState, input: MockTradeInput): ApplyResult {
     usd: amount,
     tokens,
     priceUsd: price,
+    pnlUsd: 0,
     at: now,
   };
   return {
@@ -188,6 +190,7 @@ function applySell(state: PortfolioState, input: MockTradeInput): ApplyResult {
   const tokensSold = position.tokens * fraction;
   const investedSold = position.investedUsd * fraction;
   const proceeds = Math.max(0, sellUsd - MOCK_TRADE_FEE);
+  const realized = proceeds - investedSold;
   const now = new Date().toISOString();
   const remainingTokens = position.tokens - tokensSold;
   const remainingInvested = position.investedUsd - investedSold;
@@ -201,6 +204,7 @@ function applySell(state: PortfolioState, input: MockTradeInput): ApplyResult {
     usd: proceeds,
     tokens: tokensSold,
     priceUsd: price,
+    pnlUsd: realized,
     at: now,
   };
   const trades = [trade, ...state.trades].slice(0, 50);
@@ -213,8 +217,8 @@ function applySell(state: PortfolioState, input: MockTradeInput): ApplyResult {
       updatedAt: now,
       closedAt: now,
       proceedsUsd: proceeds,
-      pnlUsd: proceeds - investedSold,
-      pnlPct: investedSold > 0 ? ((proceeds - investedSold) / investedSold) * 100 : 0,
+      pnlUsd: realized,
+      pnlPct: investedSold > 0 ? (realized / investedSold) * 100 : 0,
     };
     return {
       state: {
@@ -298,6 +302,40 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   );
 
   return <Context.Provider value={value}>{children}</Context.Provider>;
+}
+
+export function utcDateKey(value: string | Date) {
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+}
+
+export function monthPnlByDay(
+  trades: MockTrade[],
+  positions: MockPosition[],
+  year: number,
+  monthIndex: number,
+) {
+  const map: Record<number, number> = {};
+  const prefix = `${year}-${String(monthIndex + 1).padStart(2, "0")}-`;
+  const add = (iso: string, amount: number) => {
+    const key = utcDateKey(iso);
+    if (!key.startsWith(prefix) || !amount) return;
+    const day = Number(key.slice(8, 10));
+    if (!Number.isFinite(day)) return;
+    map[day] = (map[day] ?? 0) + amount;
+  };
+  for (const trade of trades) add(trade.at, trade.pnlUsd ?? 0);
+  for (const position of positions) add(position.updatedAt || position.openedAt, positionPnl(position).pnl);
+  return map;
+}
+
+export function mintPnl(trades: MockTrade[], mint: string, dayKey?: string) {
+  return trades.reduce((sum, trade) => {
+    if (trade.mint !== mint) return sum;
+    if (dayKey && utcDateKey(trade.at) !== dayKey) return sum;
+    return sum + (trade.pnlUsd ?? 0);
+  }, 0);
 }
 
 export function usePortfolio() {

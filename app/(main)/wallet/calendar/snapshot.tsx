@@ -9,7 +9,7 @@ import {
     Alert,
     ActivityIndicator,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
     ArrowLeft,
     BadgeCheck,
@@ -23,6 +23,10 @@ import {
     FONTS,
 } from "../../../../constants/theme";
 import GlassButton from "../../../../components/GlassButton";
+import TokenImage from "../../../../components/TokenImage";
+import { mintPnl, positionPnl, utcDateKey, usePortfolio } from "../../../../components/PortfolioContext";
+import { formatMc, formatTokenAmount, formatUsdMoney, prettySymbol } from "../../../../lib/format";
+import { readRouteParam, truncateAddress } from "../../../../lib/solana";
 
 type ThemeKey =
     | "green"
@@ -77,23 +81,49 @@ const THEME_OPTIONS: {
         { key: "darkBlue", color: "#131F3D" },
     ];
 
-const SAMPLE = {
-    username: "rasmr",
-    handle: "@rasmr",
-    token: "STONK",
-    symbol: "$STONK",
-    address: "6GmAFS...MpUNgx",
-    rewards24h: "19.82 STONK",
-    rewardsAll: "687.36 STONK",
-    value24h: "$2.16",
-    valueAll: "$155.76",
-    marketCap: "$86.6M",
-    holding: "21.51M",
-    rewardType: "StonkFun Fee Share",
+const EMPTY_SNAPSHOT = {
+    username: "Unipcs",
+    handle: "@unipcs",
+    token: "No position",
+    symbol: "",
+    address: "—",
+    rewards24h: "0",
+    rewardsAll: "0",
+    value24h: "$0.00",
+    valueAll: "$0.00",
+    marketCap: "—",
+    holding: "0",
+    rewardType: "Paper trade",
+    imageUrl: null as string | null,
+    mint: "",
 };
 
 export default function SnapshotScreen() {
     const router = useRouter();
+    const { mint: rawMint } = useLocalSearchParams<{ mint?: string | string[] }>();
+    const mint = readRouteParam(rawMint);
+    const { positions, trades, positionFor } = usePortfolio();
+    const holding = positionFor(mint) ?? positions[0] ?? null;
+    const holdingPnl = holding ? positionPnl(holding).pnl : 0;
+    const latestDay = holding ? utcDateKey(holding.updatedAt || holding.openedAt) : "";
+    const pnl24h = holding ? mintPnl(trades, holding.mint, latestDay) + holdingPnl : 0;
+    const pnlAll = holding ? mintPnl(trades, holding.mint) + holdingPnl : 0;
+    const snapshot = holding
+        ? {
+            ...EMPTY_SNAPSHOT,
+            token: holding.name,
+            symbol: prettySymbol(holding.symbol),
+            address: truncateAddress(holding.mint),
+            rewards24h: formatUsdMoney(pnl24h),
+            rewardsAll: formatUsdMoney(pnlAll),
+            value24h: formatUsdMoney(pnl24h),
+            valueAll: formatUsdMoney(pnlAll),
+            marketCap: formatMc(holding.avgEntryMc).replace(" MC", "") || "—",
+            holding: formatTokenAmount(holding.tokens),
+            imageUrl: holding.imageUrl ?? null,
+            mint: holding.mint,
+          }
+        : EMPTY_SNAPSHOT;
     const shotRef = useRef<React.ElementRef<typeof ViewShot>>(null);
 
     const [themeKey, setThemeKey] =
@@ -229,7 +259,7 @@ export default function SnapshotScreen() {
                                             { color: theme.text },
                                         ]}
                                     >
-                                        {SAMPLE.username}
+                                        {snapshot.username}
                                     </Text>
                                     <BadgeCheck
                                         size={20}
@@ -242,7 +272,7 @@ export default function SnapshotScreen() {
                                         { color: theme.text },
                                     ]}
                                 >
-                                    {SAMPLE.handle}
+                                    {snapshot.handle}
                                 </Text>
                             </View>
 
@@ -273,9 +303,11 @@ export default function SnapshotScreen() {
 
                             <View style={styles.tokenRow}>
                                 <View style={styles.tokenIcon}>
-                                    <Text style={styles.tokenLetter}>
-                                        S
-                                    </Text>
+                                    <TokenImage
+                                        uri={snapshot.imageUrl}
+                                        mint={snapshot.mint}
+                                        style={styles.tokenImage}
+                                    />
                                 </View>
 
                                 <View style={styles.tokenInfo}>
@@ -286,7 +318,7 @@ export default function SnapshotScreen() {
                                                 { color: theme.text },
                                             ]}
                                         >
-                                            {SAMPLE.token}
+                                            {snapshot.token}
                                         </Text>
                                         <Text
                                             style={[
@@ -294,7 +326,7 @@ export default function SnapshotScreen() {
                                                 { color: theme.text },
                                             ]}
                                         >
-                                            • {SAMPLE.symbol}
+                                            • {snapshot.symbol}
                                         </Text>
                                         <View style={styles.official}>
                                             <BadgeCheck
@@ -313,7 +345,7 @@ export default function SnapshotScreen() {
                                             { color: theme.secondary },
                                         ]}
                                     >
-                                        {SAMPLE.address}
+                                        {snapshot.address}
                                     </Text>
                                 </View>
                             </View>
@@ -335,8 +367,8 @@ export default function SnapshotScreen() {
                                         ]}
                                     >
                                         {is24h
-                                            ? SAMPLE.rewards24h
-                                            : SAMPLE.rewardsAll}
+                                            ? snapshot.rewards24h
+                                            : snapshot.rewardsAll}
                                     </Text>
                                     <Text
                                         style={[
@@ -345,8 +377,8 @@ export default function SnapshotScreen() {
                                         ]}
                                     >
                                         {is24h
-                                            ? SAMPLE.value24h
-                                            : SAMPLE.valueAll}
+                                            ? snapshot.value24h
+                                            : snapshot.valueAll}
                                     </Text>
                                 </View>
 
@@ -365,7 +397,7 @@ export default function SnapshotScreen() {
                                             { color: theme.text },
                                         ]}
                                     >
-                                        {SAMPLE.marketCap}
+                                        {snapshot.marketCap}
                                     </Text>
                                 </View>
 
@@ -384,7 +416,7 @@ export default function SnapshotScreen() {
                                             { color: theme.text },
                                         ]}
                                     >
-                                        {SAMPLE.holding}
+                                        {snapshot.holding}
                                     </Text>
                                 </View>
 
@@ -403,7 +435,7 @@ export default function SnapshotScreen() {
                                             { color: theme.text },
                                         ]}
                                     >
-                                        {SAMPLE.rewardType}
+                                        {snapshot.rewardType}
                                     </Text>
                                 </View>
                             </View>
@@ -590,6 +622,12 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.stonkDarkestB,
         alignItems: "center",
         justifyContent: "center",
+        overflow: "hidden",
+    },
+    tokenImage: {
+        width: "100%",
+        height: "100%",
+        borderRadius: 23,
     },
     tokenLetter: {
         fontFamily: FONTS.regular,
