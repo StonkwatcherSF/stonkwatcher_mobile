@@ -132,6 +132,8 @@ export default function DexTokenScreen() {
     mode: "buy" | "sell";
     tokenId: string;
     amount: number;
+    tokenName: string;
+    imageUrl?: string | null;
   } | null>(null);
   const { data: detail } = useTokenMarket(mint);
   const tokenMeta = detail?.token;
@@ -332,7 +334,7 @@ export default function DexTokenScreen() {
           marketCapUsd={marketCapUsd}
           onClose={() => setTradeMode(null)}
           onTradeConfirmed={(mode, tokenId, amount) => {
-            setConfirmedTrade({ mode, tokenId, amount });
+            setConfirmedTrade({ mode, tokenId, amount, tokenName: token.name, imageUrl: logoUri });
             setTradeMode(null);
           }}
         />
@@ -351,7 +353,9 @@ export default function DexTokenScreen() {
           }}
         >
           <TradeConfirmation
-            tokenName={token.name}
+            tokenName={confirmedTrade.tokenName}
+            imageUrl={confirmedTrade.imageUrl}
+            mint={confirmedTrade.tokenId}
             mode={confirmedTrade.mode}
             amount={confirmedTrade.amount}
             onDismiss={() => setConfirmedTrade(null)}

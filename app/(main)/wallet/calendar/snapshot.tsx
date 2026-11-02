@@ -24,6 +24,8 @@ import {
 } from "../../../../constants/theme";
 import GlassButton from "../../../../components/GlassButton";
 import TokenImage from "../../../../components/TokenImage";
+import UserAvatar from "../../../../components/UserAvatar";
+import { useSettings } from "../../../../components/SettingsContext";
 import { mintPnl, positionPnl, utcDateKey, usePortfolio } from "../../../../components/PortfolioContext";
 import { formatMc, formatTokenAmount, formatUsdMoney, prettySymbol } from "../../../../lib/format";
 import { readRouteParam, truncateAddress } from "../../../../lib/solana";
@@ -82,8 +84,6 @@ const THEME_OPTIONS: {
     ];
 
 const EMPTY_SNAPSHOT = {
-    username: "Unipcs",
-    handle: "@unipcs",
     token: "No position",
     symbol: "",
     address: "—",
@@ -100,6 +100,7 @@ const EMPTY_SNAPSHOT = {
 
 export default function SnapshotScreen() {
     const router = useRouter();
+    const { prefs } = useSettings();
     const { mint: rawMint } = useLocalSearchParams<{ mint?: string | string[] }>();
     const mint = readRouteParam(rawMint);
     const { positions, trades, positionFor } = usePortfolio();
@@ -246,9 +247,7 @@ export default function SnapshotScreen() {
                     >
                         <View style={styles.profileRow}>
                             <View style={styles.avatar}>
-                                <Text style={styles.avatarText}>
-                                    👨🏻‍💻
-                                </Text>
+                                <UserAvatar style={styles.avatarImage} />
                             </View>
 
                             <View style={styles.profileInfo}>
@@ -259,7 +258,7 @@ export default function SnapshotScreen() {
                                             { color: theme.text },
                                         ]}
                                     >
-                                        {snapshot.username}
+                                        {prefs.name}
                                     </Text>
                                     <BadgeCheck
                                         size={20}
@@ -272,7 +271,7 @@ export default function SnapshotScreen() {
                                         { color: theme.text },
                                     ]}
                                 >
-                                    {snapshot.handle}
+                                    {prefs.username}
                                 </Text>
                             </View>
 
@@ -570,8 +569,10 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    avatarText: {
-        fontSize: 28,
+    avatarImage: {
+        width: 54,
+        height: 54,
+        borderRadius: 27,
     },
     profileInfo: {
         flex: 1,

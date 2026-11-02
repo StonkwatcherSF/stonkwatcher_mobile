@@ -1,16 +1,13 @@
-import { Platform } from "react-native";
-import * as AppleAuthentication from "expo-apple-authentication";
-import * as Crypto from "expo-crypto";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import { makeRedirectUri } from "expo-auth-session";
-import type { Provider, Session, User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 import { AUTH_REDIRECT_PATH } from "./config";
 import { supabase, supabaseReady } from "./supabase";
 
 WebBrowser.maybeCompleteAuthSession();
 
-export type AuthProvider = "apple" | "google";
+export type AuthProvider = "google";
 
 export class AuthCancelledError extends Error {
   constructor() {
@@ -61,11 +58,6 @@ export async function createSessionFromUrl(url: string) {
   return data.session;
 }
 
-async function randomNonce() {
-  const bytes = await Crypto.getRandomBytesAsync(16);
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
 export async function syncProfile(user: User) {
   const provider =
     (user.app_metadata?.provider as string | undefined) ||
@@ -93,7 +85,7 @@ export async function syncProfile(user: User) {
   }
 }
 
-export async function signInWithOAuth(provider: Provider) {
+export async function signInWithOAuth(provider: AuthProvider) {
   requireSupabase();
   const redirectTo = authRedirectUri();
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -112,67 +104,6 @@ export async function signInWithOAuth(provider: Provider) {
   if (!session?.user) throw new Error("Sign in did not return a session.");
   await syncProfile(session.user).catch(() => undefined);
   return session;
-}
-
-async function signInWithNativeApple(): Promise<Session> {
-  requireSupabase();
-  const rawNonce = await randomNonce();
-  const hashedNonce = await Crypto.digestStringAsync(
-    Crypto.CryptoDigestAlgorithm.SHA256,
-    rawNonce,
-  );
-  let credential: AppleAuthentication.AppleAuthenticationCredential;
-  try {
-    credential = await AppleAuthentication.signInAsync({
-      requestedScopes: [
-        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-        AppleAuthentication.AppleAuthenticationScope.EMAIL,
-      ],
-      nonce: hashedNonce,
-    });
-  } catch (error) {
-    const code = (error as { code?: string }).code;
-    if (code === "ERR_REQUEST_CANCELED") throw new AuthCancelledError();
-    throw error;
-  }
-  if (!credential.identityToken) {
-    throw new Error("Apple did not return an identity token.");
-  }
-  const { data, error } = await supabase.auth.signInWithIdToken({
-    provider: "apple",
-    token: credential.identityToken,
-    nonce: rawNonce,
-  });
-  if (error) throw error;
-  if (!data.session?.user) throw new Error("Apple sign in did not return a session.");
-  const fullName = [credential.fullName?.givenName, credential.fullName?.familyName]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-  if (fullName) {
-    await supabase.auth
-      .updateUser({
-        data: {
-          full_name: fullName,
-          given_name: credential.fullName?.givenName,
-          family_name: credential.fullName?.familyName,
-        },
-      })
-      .catch(() => undefined);
-  }
-  await syncProfile(data.session.user).catch(() => undefined);
-  return data.session;
-}
-
-export async function signInWithApple() {
-  if (Platform.OS === "ios" && (await AppleAuthentication.isAvailableAsync())) {
-    try {
-      return await signInWithNativeApple();
-    } catch (error) {
-      if (error instanceof AuthCancelledError) throw error;
-    }
-  }
-  return signInWithOAuth("apple");
 }
 
 export async function signInWithGoogle() {

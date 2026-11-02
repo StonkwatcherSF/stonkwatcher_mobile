@@ -3,16 +3,18 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Easing,
-  Image,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import AnimatedAmount from "./AnimatedAmount";
+import TokenImage from "./TokenImage";
 
 type Props = {
   tokenName?: string;
+  imageUrl?: string | null;
+  mint?: string;
   amount?: number;
   mode?: "buy" | "sell";
   onDismiss?: () => void;
@@ -24,6 +26,8 @@ const LIME = "#C6E900";
 
 export default function TradeConfirmation({
   tokenName = "Stonk Watcher",
+  imageUrl,
+  mint,
   amount = 2302.42,
   mode = "buy",
   onDismiss,
@@ -160,10 +164,10 @@ export default function TradeConfirmation({
             },
           ]}
         >
-          <Image
-            source={require("../assets/images/stonk-logo.png")}
+          <TokenImage
+            uri={imageUrl}
+            mint={mint}
             style={styles.logo}
-            resizeMode="contain"
           />
 
           {stage === "loading" && (
@@ -253,6 +257,7 @@ const styles = StyleSheet.create({
   logo: {
     width: 49,
     height: 49,
+    borderRadius: 25,
   },
 
   loadingRing: {
