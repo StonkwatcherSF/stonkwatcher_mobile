@@ -36,6 +36,7 @@ type Transaction = {
     amount: string;
     detail: string;
     imageUrl?: string | null;
+    verified?: boolean;
     positive: boolean;
 };
 
@@ -129,11 +130,11 @@ function TransactionRow({
                         {transaction.name}
                     </Text>
 
-                    <BadgeCheck
+                    {transaction.verified === true && <BadgeCheck
                         size={15}
                         color={COLORS.stonkGreen}
                         strokeWidth={2.2}
-                    />
+                    />}
                 </View>
 
                 <Text
@@ -182,6 +183,7 @@ export default function WalletHistorySheet({
         amount: `${trade.mode === "sell" ? "+" : "-"}${formatUsdMoney(trade.usd)}`,
         detail: `${formatTokenAmount(trade.tokens)} ${prettySymbol(trade.symbol)}`,
         imageUrl: trade.imageUrl,
+        verified: trade.verified === true,
         positive: trade.mode === "sell",
     }));
     const translateY = useRef(

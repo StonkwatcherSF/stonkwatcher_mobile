@@ -9,7 +9,11 @@ import {
 } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import AnimatedAmount from "./AnimatedAmount";
+import ConfirmationCelebration from "./ConfirmationCelebration";
 import TokenImage from "./TokenImage";
+import { captureRef, releaseCapture } from "react-native-view-shot";
+import { useReducedMotion } from "react-native-reanimated";
+import ConfirmationWarp, { type WarpFlight, type WarpTarget } from "./ConfirmationWarp";
 
 type Props = {
   tokenName?: string;
@@ -18,6 +22,7 @@ type Props = {
   amount?: number;
   mode?: "buy" | "sell";
   onDismiss?: () => void;
+  onPrepareExit?: () => Promise<WarpTarget | null>;
 };
 
 const BANNER_WIDTH = 320;
@@ -31,38 +36,47 @@ export default function TradeConfirmation({
   amount = 2302.42,
   mode = "buy",
   onDismiss,
+  onPrepareExit,
 }: Props) {
-  const rotation = useRef(new Animated.Value(0)).current;
-  const expansion = useRef(new Animated.Value(64)).current;
-  const contentOpacity = useRef(new Animated.Value(0)).current;
-  const bannerOpacity = useRef(new Animated.Value(1)).current;
-  const bannerTranslateY = useRef(new Animated.Value(0)).current;
+  const [rotation] = useState(() => new Animated.Value(0));
+  const [expansion] = useState(() => new Animated.Value(64));
+  const [contentOpacity] = useState(() => new Animated.Value(0));
+  const [fallbackWarp] = useState(() => new Animated.Value(0));
+  const sourceRef = useRef<React.ElementRef<typeof View>>(null);
+  const prepareRef = useRef(onPrepareExit);
+  const reduceMotion = useReducedMotion();
+  const [flight, setFlight] = useState<WarpFlight | null>(null);
+  const [flying, setFlying] = useState(false);
+  useEffect(() => { prepareRef.current = onPrepareExit; }, [onPrepareExit]);
+  useEffect(() => {
+    if (!flight || flight.uri) return;
+    Animated.timing(fallbackWarp, { toValue: 1, duration: reduceMotion ? 0 : 550, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
+      if (finished) dismissRef.current?.();
+    });
+    return () => fallbackWarp.stopAnimation();
+  }, [fallbackWarp, flight, reduceMotion]);
+  useEffect(() => () => { if (flight?.uri) releaseCapture(flight.uri); }, [flight?.uri]);
 
   const [stage, setStage] = useState<
     "loading" | "expanding" | "confirmed"
   >("loading");
 
   const dismissRef = useRef(onDismiss);
-  dismissRef.current = onDismiss;
+  useEffect(() => { dismissRef.current = onDismiss; }, [onDismiss]);
 
   useEffect(() => {
     rotation.setValue(0);
     expansion.setValue(64);
     contentOpacity.setValue(0);
-    bannerOpacity.setValue(1);
-    bannerTranslateY.setValue(0);
+    fallbackWarp.setValue(0);
+    let cancelled = false;
 
-    setStage("loading");
-
-    const spinning = Animated.loop(
-      Animated.timing(rotation, {
-        toValue: 1,
-        duration: 950,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    );
-
+    const spinning = Animated.loop(Animated.timing(rotation, {
+      toValue: 1,
+      duration: 950,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }));
     spinning.start();
 
     const loadingTimer = setTimeout(() => {
@@ -89,45 +103,44 @@ export default function TradeConfirmation({
     }, 1500);
 
     const dismissTimer = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(bannerOpacity, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(bannerTranslateY, {
-          toValue: -25,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start(({ finished }) => {
-        if (finished) {
-          dismissRef.current?.();
-        }
-      });
-    }, 5000);
+      void (async () => {
+        const target = await prepareRef.current?.().catch(() => null);
+        if (cancelled) return;
+        if (reduceMotion) { dismissRef.current?.(); return; }
+        const source = sourceRef.current;
+        if (!source) { dismissRef.current?.(); return; }
+        source.measureInWindow((x, y, width, height) => {
+          if (cancelled) return;
+          const dx = target ? target.x + target.width / 2 - (x + width / 2) : 0;
+          const dy = target ? target.y + target.height / 2 - (y + height / 2) : 0;
+          void captureRef(source, { format: "png", quality: 1, result: "tmpfile" })
+            .then((uri) => {
+              if (cancelled) releaseCapture(uri);
+              else setFlight({ uri, dx, dy });
+            })
+            .catch(() => { if (!cancelled) setFlight({ dx, dy }); });
+        });
+      })().catch(() => { if (!cancelled) dismissRef.current?.(); });
+    }, 4200);
 
     return () => {
+      cancelled = true;
       clearTimeout(loadingTimer);
       clearTimeout(dismissTimer);
       spinning.stop();
       expansion.stopAnimation();
       contentOpacity.stopAnimation();
-      bannerOpacity.stopAnimation();
-      bannerTranslateY.stopAnimation();
+      fallbackWarp.stopAnimation();
     };
   }, [
     rotation,
     expansion,
     contentOpacity,
-    bannerOpacity,
-    bannerTranslateY,
+    fallbackWarp,
+    reduceMotion,
   ]);
 
-  const spin = rotation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
+  const spin = rotation.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
 
   const logoPosition = expansion.interpolate({
     inputRange: [64, BANNER_WIDTH],
@@ -144,18 +157,27 @@ export default function TradeConfirmation({
       style={[
         styles.container,
         {
-          opacity: bannerOpacity,
-          transform: [{ translateY: bannerTranslateY }],
+          opacity: fallbackWarp.interpolate({ inputRange: [0, 0.85, 1], outputRange: [1, 1, 0] }),
+          transform: [
+            { translateX: fallbackWarp.interpolate({ inputRange: [0, 1], outputRange: [0, flight?.dx ?? 0] }) },
+            { translateY: fallbackWarp.interpolate({ inputRange: [0, 1], outputRange: [0, flight?.dy ?? 0] }) },
+            { scaleX: fallbackWarp.interpolate({ inputRange: [0, 1], outputRange: [1, 0.04] }) },
+            { scaleY: fallbackWarp.interpolate({ inputRange: [0, 0.4, 1], outputRange: [1, 1.8, 0.04] }) },
+          ],
         },
       ]}
     >
-      <Animated.View
+      <View ref={sourceRef} collapsable={false} style={{ opacity: flying ? 0 : 1 }}>
+      <ConfirmationCelebration
+        active={stage === "confirmed"}
+        layoutStyle={{ width: expansion }}
         style={[
           styles.banner,
-          { width: expansion },
+          { width: "100%" },
           stage === "loading" && styles.loadingBanner,
         ]}
       >
+        {(onAmountComplete) => <>
         <Animated.View
           style={[
             styles.logoGroup,
@@ -164,37 +186,15 @@ export default function TradeConfirmation({
             },
           ]}
         >
-          <TokenImage
-            uri={imageUrl}
-            mint={mint}
-            style={styles.logo}
-          />
-
+          <TokenImage uri={imageUrl} mint={mint} style={styles.logo} />
           {stage === "loading" && (
-            <Animated.View
-              style={[
-                styles.loadingRing,
-                { transform: [{ rotate: spin }] },
-              ]}
-            >
-              <Svg
-                width={64}
-                height={64}
-                viewBox="0 0 64 64"
-              >
-                <Circle
-                  cx={32}
-                  cy={32}
-                  r={29}
-                  stroke={LIME}
-                  strokeWidth={3}
-                  strokeLinecap="round"
-                  strokeDasharray="38 145"
-                  fill="none"
-                />
+            <Animated.View style={[styles.loadingRing, { transform: [{ rotate: spin }] }]}>
+              <Svg width={64} height={64} viewBox="0 0 64 64">
+                <Circle cx={32} cy={32} r={29} stroke={LIME} strokeWidth={3} strokeLinecap="round" strokeDasharray="38 145" fill="none" />
               </Svg>
             </Animated.View>
           )}
+
         </Animated.View>
 
         {stage === "confirmed" && (
@@ -215,10 +215,14 @@ export default function TradeConfirmation({
               amount={signedAmount}
               duration={650}
               style={styles.amount}
+              onComplete={onAmountComplete}
             />
           </Animated.View>
         )}
-      </Animated.View>
+        </>}
+      </ConfirmationCelebration>
+      </View>
+      {flight?.uri && <ConfirmationWarp flight={flight} onReady={() => setFlying(true)} onComplete={() => dismissRef.current?.()} onFailure={() => { setFlying(false); setFlight({ dx: flight.dx, dy: flight.dy }); }} />}
     </Animated.View>
   );
 }
@@ -260,13 +264,8 @@ const styles = StyleSheet.create({
     borderRadius: 25,
   },
 
-  loadingRing: {
-    position: "absolute",
-    width: 64,
-    height: 64,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+
+  loadingRing: { position: "absolute", width: 64, height: 64, alignItems: "center", justifyContent: "center" },
 
   confirmationContent: {
     position: "absolute",

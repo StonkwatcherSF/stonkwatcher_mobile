@@ -1,3 +1,4 @@
+import { Skeleton, SkeletonGroup, SkeletonRows } from "../../../components/Skeleton";
 import React, { useEffect, useState } from "react";
 import {
   Animated,
@@ -38,6 +39,7 @@ type SearchItem = {
   symbol: string;
   subtitle: string;
   imageUrl?: string;
+  verified?: boolean;
   price: string;
   change: number;
   positive: boolean;
@@ -53,6 +55,7 @@ function toItem(token: StonkFunToken): SearchItem {
     symbol: prettySymbol(token.symbol) || truncateAddress(mint, 4),
     subtitle: formatMc(token.market?.marketCapUsd),
     imageUrl: token.imageUrl || token.logoUrl,
+    verified: token.verified === true,
     price: formatPrice(token.market?.priceUsd),
     change,
     positive: change >= 0,
@@ -68,6 +71,7 @@ function fromRecent(item: SearchRecent): SearchItem {
     symbol: prettySymbol(item.symbol) || item.symbol,
     subtitle: formatMc(item.marketCapUsd),
     imageUrl: item.imageUrl,
+    verified: item.verified === true,
     price: formatPrice(item.priceUsd),
     change,
     positive: change >= 0,
@@ -105,7 +109,7 @@ function ResultRow({ item, onPress }: { item: SearchItem; onPress: () => void })
       <View style={styles.info}>
         <View style={styles.nameLine}>
           <Text numberOfLines={1} style={styles.name}>{item.name}</Text>
-          <BadgeCheck size={13} color={LIME} />
+          {item.verified === true && <BadgeCheck size={13} color={LIME} />}
         </View>
         <Text numberOfLines={1} style={styles.subtitle}>{item.subtitle}</Text>
       </View>
@@ -128,7 +132,7 @@ export default function SearchScreen() {
   const [keyboardOffset] = useState(() => new Animated.Value(0));
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const { data: results, loading } = useSearchTokens(debounced);
-  const { data: trending } = useTrendingTokens(8);
+  const { data: trending, loading: trendingLoading } = useTrendingTokens(8);
   const { recents, remember } = useSearchRecents();
 
   useEffect(() => {
@@ -165,6 +169,7 @@ export default function SearchScreen() {
       name: item.name,
       symbol: item.symbol,
       imageUrl: item.imageUrl,
+      verified: item.verified === true,
       priceUsd: Number(item.price.replace(/[^0-9.]/g, "")) || undefined,
       marketCapUsd: undefined,
       change: item.change,
@@ -174,6 +179,7 @@ export default function SearchScreen() {
   }
 
   const searching = query.trim().length > 0;
+  const pendingSearch = loading || query.trim() !== debounced.trim();
   const filtered = (results ?? []).map(toItem);
   const recentItems = recents.map(fromRecent);
   const tokenItems = (trending ?? []).map(toItem);
@@ -194,8 +200,8 @@ export default function SearchScreen() {
         {searching ? (
           <>
             <Text style={styles.sectionTitle}>Search Results</Text>
-            <Text style={styles.resultCount}>{loading ? "Searching…" : `${filtered.length} ${filtered.length === 1 ? "result" : "results"}`}</Text>
-            {filtered.length ? filtered.map((item) => <ResultRow key={item.id} item={item} onPress={() => openItem(item)} />) : (
+            {pendingSearch ? <SkeletonGroup style={{ marginBottom: 12 }}><Skeleton width={85} height={11} /></SkeletonGroup> : <Text style={styles.resultCount}>{`${filtered.length} ${filtered.length === 1 ? "result" : "results"}`}</Text>}
+            {pendingSearch ? <SkeletonRows count={5} /> : filtered.length ? filtered.map((item) => <ResultRow key={item.id} item={item} onPress={() => openItem(item)} />) : (
               !loading ? (
               <View style={styles.empty}>
                 <Search size={28} color="#777" />
@@ -214,6 +220,7 @@ export default function SearchScreen() {
               </>
             ) : null}
             <Text style={[styles.sectionTitle, recentItems.length ? styles.sectionGap : undefined]}>Tokens</Text>
+            {trendingLoading && !tokenItems.length ? <SkeletonRows count={5} /> : null}
             {tokenItems.map((item) => <ResultRow key={`token-${item.id}`} item={item} onPress={() => openItem(item)} />)}
           </>
         )}

@@ -1,3 +1,4 @@
+import { Skeleton, SkeletonGroup } from "../../../../components/Skeleton";
 
 import React, { useRef, useState } from "react";
 import {
@@ -7,7 +8,6 @@ import {
     Pressable,
     ScrollView,
     Alert,
-    ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -84,6 +84,7 @@ const THEME_OPTIONS: {
     ];
 
 const EMPTY_SNAPSHOT = {
+    verified: false,
     token: "No position",
     symbol: "",
     address: "—",
@@ -113,6 +114,7 @@ export default function SnapshotScreen() {
         ? {
             ...EMPTY_SNAPSHOT,
             token: holding.name,
+            verified: holding.verified === true,
             symbol: prettySymbol(holding.symbol),
             address: truncateAddress(holding.mint),
             rewards24h: formatUsdMoney(pnl24h),
@@ -327,7 +329,7 @@ export default function SnapshotScreen() {
                                         >
                                             • {snapshot.symbol}
                                         </Text>
-                                        <View style={styles.official}>
+                                        {snapshot.verified === true && <View style={styles.official}>
                                             <BadgeCheck
                                                 size={12}
                                                 color={COLORS.stonkDarkG}
@@ -335,7 +337,7 @@ export default function SnapshotScreen() {
                                             <Text style={styles.officialText}>
                                                 Official
                                             </Text>
-                                        </View>
+                                        </View>}
                                     </View>
 
                                     <Text
@@ -481,9 +483,7 @@ export default function SnapshotScreen() {
                     <GlassButton
                         icon={
                             sharing ? (
-                                <ActivityIndicator
-                                    color={COLORS.white}
-                                />
+                                <SkeletonGroup label="Preparing snapshot"><Skeleton width={22} height={22} /></SkeletonGroup>
                             ) : (
                                 <Send
                                     size={20}

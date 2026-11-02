@@ -1,5 +1,6 @@
+import { Skeleton, SkeletonRows, SkeletonChart } from "../../../components/Skeleton";
 import React, { useRef, useState } from "react";
-import { View, Text, ScrollView, Pressable, StyleSheet, useWindowDimensions, Alert, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, Pressable, StyleSheet, useWindowDimensions, Alert } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Clipboard from "expo-clipboard";
@@ -9,6 +10,8 @@ import { ArrowLeft, BadgeCheck, Copy, Send, SlidersHorizontal } from "lucide-rea
 import { COLORS, FONTS, GRADIENTS } from "../../../constants/theme";
 import TradeSheet from "../../../components/TradeSheet";
 import TradeConfirmation from "../../../components/TradeConfirmation";
+import type { WarpTarget } from "../../../components/ConfirmationWarp";
+import DexPositionReveal, { PositionRevealText } from "../../../components/DexPositionReveal";
 import TokenImage from "../../../components/TokenImage";
 import UserAvatar from "../../../components/UserAvatar";
 import PriceChart from "../../../components/PriceChart";
@@ -79,10 +82,10 @@ function TokenInfoPanel({ info, loading }: { info: TokenInfoPayload | null; load
     <View style={styles.tokenInfoPanel}>
       <View style={styles.sectionHeading}>
         <Text style={styles.sectionTitle}>Token Info <Text style={styles.sectionAccent}>♙</Text></Text>
-        <Text style={styles.demoIndicator}>{loading && !info ? "Loading" : "StonkFun"}</Text>
+        {loading && !info ? <Skeleton width={50} height={10} /> : <Text style={styles.demoIndicator}>StonkFun</Text>}
       </View>
       {loading && !info ? (
-        <ActivityIndicator color={COLORS.stonkGreen} style={{ marginVertical: 18 }} />
+        <SkeletonRows count={4} avatar={false} />
       ) : (
         <>
       <View style={styles.metricGrid}>
@@ -118,24 +121,29 @@ function TokenInfoPanel({ info, loading }: { info: TokenInfoPayload | null; load
 
 export default function DexTokenScreen() {
   const router = useRouter();
+  const scrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
+  const positionAnchorRef = useRef<React.ElementRef<typeof View>>(null);
+  const positionTop = useRef(0);
+  const scrollEnd = useRef<(() => void) | null>(null);
   const positionShotRef = useRef<React.ElementRef<typeof ViewShot>>(null);
   const [sharingPosition, setSharingPosition] = useState(false);
   const [historyVisible, setHistoryVisible] = useState(false);
   const { tokenId } = useLocalSearchParams<{ tokenId?: string | string[] }>();
   const mint = readRouteParam(tokenId);
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const [period, setPeriod] = useState<Period>("1m");
   const [infoTab, setInfoTab] = useState<InfoTab>("Transactions");
   const [copied, setCopied] = useState(false);
   const [tradeMode, setTradeMode] = useState<"buy" | "sell" | null>(null);
   const [confirmedTrade, setConfirmedTrade] = useState<{
+    id: string;
     mode: "buy" | "sell";
     tokenId: string;
     amount: number;
     tokenName: string;
     imageUrl?: string | null;
   } | null>(null);
-  const { data: detail } = useTokenMarket(mint);
+  const { data: detail, loading: detailLoading } = useTokenMarket(mint);
   const tokenMeta = detail?.token;
   const market = detail?.market;
   const name = tokenMeta?.name || tokenMeta?.symbol || truncateAddress(mint);
@@ -209,6 +217,27 @@ export default function DexTokenScreen() {
       ].join("\n"),
     });
   };
+  const preparePositionExit = async (): Promise<WarpTarget | null> => {
+    if (!holding || !positionAnchorRef.current) return null;
+    const measure = () => new Promise<WarpTarget | null>((resolve) => {
+      const timeout = setTimeout(() => resolve(null), 350);
+      positionAnchorRef.current?.measureInWindow((x, y, width, height) => {
+        clearTimeout(timeout);
+        resolve(width > 0 && height > 0 ? { x, y, width, height } : null);
+      });
+    });
+    const target = await measure();
+    if (!target || (target.y >= 145 && target.y + target.height < height - 120)) return target;
+    // Bring the destination into view while keeping the completed confirmation visible.
+    await new Promise<void>((resolve) => {
+      const finish = () => { clearTimeout(timeout); scrollEnd.current = null; resolve(); };
+      const timeout = setTimeout(finish, 650);
+      scrollEnd.current = finish;
+      scrollRef.current?.scrollTo({ y: Math.max(0, positionTop.current - 170), animated: true });
+    });
+    return measure();
+  };
+
   return (
     <View style={styles.root}>
       <Stack.Screen
@@ -218,7 +247,7 @@ export default function DexTokenScreen() {
       />
       <LinearGradient colors={GRADIENTS.tokens} style={StyleSheet.absoluteFill} />
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-        <ScrollView showsVerticalScrollIndicator={false} nestedScrollEnabled contentContainerStyle={styles.content}>
+        <ScrollView ref={scrollRef} onMomentumScrollEnd={() => scrollEnd.current?.()} showsVerticalScrollIndicator={false} nestedScrollEnabled contentContainerStyle={styles.content}>
           <View style={styles.topBar}>
             <Pressable accessibilityLabel="Back to tokens" onPress={() => router.back()} style={styles.round}><ArrowLeft color={COLORS.white} size={23} /></Pressable>
             <View style={styles.headerRight}>
@@ -244,11 +273,11 @@ export default function DexTokenScreen() {
               </Pressable>
             </View>
           </View>
-          <View style={styles.tokenHeader}>
+          {detailLoading && !detail ? <SkeletonRows count={1} /> : <View style={styles.tokenHeader}>
             <View style={styles.tokenAvatar}><TokenImage uri={logoUri} mint={mint} style={styles.tokenImage} /></View>
-            <View style={{ flex: 1 }}><View style={styles.nameRow}><Text style={styles.tokenName}>{token.name}</Text><BadgeCheck size={17} color={COLORS.stonkGreen} /></View><Pressable onPress={() => void handleCopyMint()} hitSlop={10} style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5 }} accessibilityRole="button" accessibilityLabel="Copy contract address"><Text style={styles.symbol}>{copied ? "Copied" : ticker}</Text><Copy size={12} color={copied ? COLORS.stonkGreen : COLORS.grey} /></Pressable></View>
+            <View style={{ flex: 1 }}><View style={styles.nameRow}><Text style={styles.tokenName}>{token.name}</Text>{tokenMeta?.verified === true && <BadgeCheck size={17} color={COLORS.stonkGreen} />}</View><Pressable onPress={() => void handleCopyMint()} hitSlop={10} style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5 }} accessibilityRole="button" accessibilityLabel="Copy contract address"><Text style={styles.symbol}>{copied ? "Copied" : ticker}</Text><Copy size={12} color={copied ? COLORS.stonkGreen : COLORS.grey} /></Pressable></View>
             <View style={styles.marketInfo}><Text style={styles.marketLabel}>MC</Text><Text style={styles.marketValue}>{token.marketCap}</Text><Text style={[styles.change, { color: positive ? COLORS.buy : COLORS.sell }]}>{positive ? "▲" : "▼"} {Math.abs(token.change).toFixed(2)}%</Text></View>
-          </View>
+          </View>}
           <View style={styles.chart}>
             <PriceChart
               width={Math.max(280, width - 30)}
@@ -258,7 +287,7 @@ export default function DexTokenScreen() {
               step={PERIOD_STEP[period as ChartPeriod]}
             />
             {chartLoading && !(candles?.length) ? (
-              <View style={styles.chartOverlay}><ActivityIndicator color={COLORS.stonkGreen} /></View>
+              <View style={styles.chartOverlay}><SkeletonChart height={230} /></View>
             ) : null}
             {!chartLoading && !(candles?.length) ? (
               <View style={styles.chartOverlay}><Text style={styles.chartEmpty}>No live candles yet</Text></View>
@@ -266,35 +295,37 @@ export default function DexTokenScreen() {
           </View>
           <View style={styles.periodRow}>{PERIODS.map(p => <Pressable key={p} onPress={() => setPeriod(p)} style={[styles.periodButton, period === p && styles.selectedPeriod]}><Text style={[styles.periodText, period === p && styles.selectedText]}>{p}</Text></Pressable>)}<SlidersHorizontal size={17} color={COLORS.grey} style={{ marginLeft: 5 }} /></View>
           {holding && holdingStats ? (
-          <LinearGradient colors={["#181C09", "#262D05"]} style={styles.positionOuter}>
+          <View ref={positionAnchorRef} collapsable={false} onLayout={(event) => { positionTop.current = event.nativeEvent.layout.y; }}>
+          <DexPositionReveal active={confirmedTrade === null} replayKey={`${mint}:${holding.updatedAt}`} style={styles.positionOuter}>
+            {(clock, revealComplete) => <>
             <ViewShot ref={positionShotRef} options={{ format: "png", quality: 1, result: "tmpfile" }}>
               <View style={styles.positionInner} collapsable={false}>
-                <Text style={styles.positionTitle}>Your Position <Text style={styles.demoLabel}>(Demo)</Text></Text>
+                <Text style={styles.positionTitle}><PositionRevealText text="Your Position " clock={clock} start={0} /><PositionRevealText text="(Demo)" clock={clock} start={100} style={styles.demoLabel} /></Text>
                 <View style={styles.positionValues}>
                   <View>
-                    <Text style={styles.positionAmount}>{formatUsdMoney(holdingStats.value)}</Text>
-                    <Text style={styles.muted}>{formatTokenAmount(holding.tokens)} {token.symbol}</Text>
+                    <PositionRevealText text={formatUsdMoney(holdingStats.value)} clock={clock} start={180} style={styles.positionAmount} />
+                    <PositionRevealText text={`${formatTokenAmount(holding.tokens)} ${token.symbol}`} clock={clock} start={300} style={styles.muted} />
                   </View>
                   <View style={{ alignItems: "flex-end" }}>
-                    <Text style={[styles.pnl, holdingStats.pnl < 0 && { color: COLORS.sell }]}>{signedUsd(holdingStats.pnl)}</Text>
-                    <Text style={[styles.pnlBadge, holdingStats.pnl < 0 && { color: COLORS.sell }]}>
-                      {holdingStats.pct >= 0 ? "▲" : "▼"} {Math.abs(holdingStats.pct).toFixed(2)}%
-                    </Text>
+                    <PositionRevealText text={signedUsd(holdingStats.pnl)} clock={clock} start={420} style={[styles.pnl, holdingStats.pnl < 0 && { color: COLORS.sell }]} />
+                    <PositionRevealText text={`${holdingStats.pct >= 0 ? "▲" : "▼"} ${Math.abs(holdingStats.pct).toFixed(2)}%`} clock={clock} start={540} style={[styles.pnlBadge, holdingStats.pnl < 0 && { color: COLORS.sell }]} />
                   </View>
                 </View>
                 <View style={styles.positionFoot}>
-                  <Text style={styles.muted}>Invested  <Text style={styles.white}>{formatUsdMoney(holding.investedUsd)}</Text></Text>
-                  <Text style={styles.muted}>Avg. entry  <Text style={styles.white}>{formatMc(holding.avgEntryMc)}</Text></Text>
+                  <Text style={styles.muted}><PositionRevealText text="Invested  " clock={clock} start={660} /><PositionRevealText text={formatUsdMoney(holding.investedUsd)} clock={clock} start={740} style={styles.white} /></Text>
+                  <Text style={styles.muted}><PositionRevealText text="Avg. entry  " clock={clock} start={780} /><PositionRevealText text={formatMc(holding.avgEntryMc)} clock={clock} start={860} style={styles.white} /></Text>
                 </View>
               </View>
             </ViewShot>
-            <Pressable style={styles.share} disabled={sharingPosition} onPress={handleSharePosition} accessibilityRole="button" accessibilityLabel="Share your position"><Send color={COLORS.white} size={14} /><Text style={styles.shareText}>Share</Text></Pressable>
-          </LinearGradient>
+            <Pressable style={styles.share} disabled={sharingPosition || !revealComplete} onPress={handleSharePosition} accessibilityRole="button" accessibilityLabel="Share your position"><Send color={COLORS.white} size={14} /><PositionRevealText text="Share" clock={clock} start={900} style={styles.shareText} /></Pressable>
+            </>}
+          </DexPositionReveal>
+          </View>
           ) : null}
-          <View style={styles.tabs}>{INFO_TABS.map(tab => <Pressable key={tab} style={[styles.tab, infoTab === tab && styles.tabActive]} onPress={() => setInfoTab(tab)}><Text numberOfLines={1} style={[styles.tabText, infoTab === tab && styles.tabTextActive]}>{tab === "Transactions" ? `${trades?.length ?? 0} Transactions` : tab}</Text></Pressable>)}</View>
+          <View style={styles.tabs}>{INFO_TABS.map(tab => <Pressable key={tab} style={[styles.tab, infoTab === tab && styles.tabActive]} onPress={() => setInfoTab(tab)}><Text numberOfLines={1} style={[styles.tabText, infoTab === tab && styles.tabTextActive]}>{tab === "Transactions" ? "Live Transactions" : tab}</Text></Pressable>)}</View>
           {infoTab === "Transactions" ? (
             tradesLoading && !(trades?.length) ? (
-              <ActivityIndicator color={COLORS.stonkGreen} style={{ marginVertical: 18 }} />
+              <SkeletonRows count={4} avatar={false} />
             ) : trades?.length ? (
             trades.slice(0, 48).map((tx: IntelTransfer) => (
               <View style={styles.txRow} key={tx.id || tx.signature}>
@@ -330,11 +361,12 @@ export default function DexTokenScreen() {
           tokenName={token.name}
           symbol={token.symbol}
           imageUrl={logoUri}
+          verified={tokenMeta?.verified}
           priceUsd={priceUsd}
           marketCapUsd={marketCapUsd}
           onClose={() => setTradeMode(null)}
           onTradeConfirmed={(mode, tokenId, amount) => {
-            setConfirmedTrade({ mode, tokenId, amount, tokenName: token.name, imageUrl: logoUri });
+            setConfirmedTrade({ id: `${Date.now()}`, mode, tokenId, amount, tokenName: token.name, imageUrl: logoUri });
             setTradeMode(null);
           }}
         />
@@ -353,11 +385,13 @@ export default function DexTokenScreen() {
           }}
         >
           <TradeConfirmation
+            key={confirmedTrade.id}
             tokenName={confirmedTrade.tokenName}
             imageUrl={confirmedTrade.imageUrl}
             mint={confirmedTrade.tokenId}
             mode={confirmedTrade.mode}
             amount={confirmedTrade.amount}
+            onPrepareExit={preparePositionExit}
             onDismiss={() => setConfirmedTrade(null)}
           />
         </View>
@@ -378,9 +412,9 @@ const styles = StyleSheet.create({
   chartOverlay: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
   chartEmpty: { color: COLORS.grey, fontSize: 12, textAlign: "center", marginVertical: 16 },
   periodRow: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", marginBottom: 15, gap: 3 }, periodButton: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 3, backgroundColor: COLORS.stonkDarkG }, selectedPeriod: { backgroundColor: COLORS.stonkGreen }, periodText: { color: COLORS.grey, fontSize: 11 }, selectedText: { color: COLORS.black, fontWeight: "700" },
-  positionOuter: { borderRadius: 12, padding: 4, marginBottom: 18 }, positionInner: { backgroundColor: "#1C1C1C", borderRadius: 9, padding: 15 }, positionTitle: { color: COLORS.stonkGreen, fontSize: 13, fontFamily: FONTS.regular }, demoLabel: { color: COLORS.grey, fontSize: 10 }, positionValues: { flexDirection: "row", justifyContent: "space-between", marginTop: 7 }, positionAmount: { color: COLORS.white, fontSize: 23, fontWeight: "700" }, muted: { color: COLORS.grey, fontSize: 12, marginTop: 4 }, pnl: { color: COLORS.buy, fontSize: 19, fontWeight: "700" }, pnlBadge: { color: COLORS.buy, fontSize: 11, marginTop: 5 }, positionFoot: { flexDirection: "row", justifyContent: "space-between", marginTop: 20, flexWrap: "wrap" }, white: { color: COLORS.white, fontFamily: FONTS.regular, fontSize: 12 }, share: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, paddingVertical: 10, minHeight: 34 }, shareText: { color: COLORS.white, fontFamily: FONTS.regular, fontSize: 12 },
+  positionOuter: { borderRadius: 12, padding: 4, marginBottom: 18 }, positionInner: { backgroundColor: "rgba(28,28,28,0.78)", borderRadius: 9, padding: 15 }, positionTitle: { color: COLORS.stonkGreen, fontSize: 13, fontFamily: FONTS.regular }, demoLabel: { color: COLORS.grey, fontSize: 10 }, positionValues: { flexDirection: "row", justifyContent: "space-between", marginTop: 7 }, positionAmount: { color: COLORS.white, fontSize: 23, fontWeight: "700" }, muted: { color: COLORS.grey, fontSize: 12, marginTop: 4 }, pnl: { color: COLORS.buy, fontSize: 19, fontWeight: "700" }, pnlBadge: { color: COLORS.buy, fontSize: 11, marginTop: 5 }, positionFoot: { flexDirection: "row", justifyContent: "space-between", marginTop: 20, flexWrap: "wrap" }, white: { color: COLORS.white, fontFamily: FONTS.regular, fontSize: 12 }, share: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, paddingVertical: 10, minHeight: 34 }, shareText: { color: COLORS.white, fontFamily: FONTS.regular, fontSize: 12 },
   tabs: { flexDirection: "row", borderWidth: 1, borderColor: COLORS.stonkGreen, borderRadius: 5, padding: 3, gap: 3, marginBottom: 8 }, tab: { flex: 1, backgroundColor: COLORS.stonkDarkG, borderRadius: 4, alignItems: "center", justifyContent: "center", paddingVertical: 10 }, tabActive: { backgroundColor: COLORS.stonkLightG }, tabText: { color: COLORS.white, fontSize: 10, fontFamily: FONTS.regular }, tabTextActive: { color: COLORS.black, fontWeight: "700" },
-  txRow: { backgroundColor: "#1A1A1A", borderRadius: 7, padding: 12, marginBottom: 5, flexDirection: "row", justifyContent: "space-between" }, txName: { color: COLORS.white, fontSize: 15 }, txTime: { color: COLORS.grey, fontSize: 10, marginTop: 5 }, txAmount: { color: COLORS.buy, fontSize: 13 }, infoBox: { backgroundColor: "#1A1A1A", borderRadius: 8, padding: 20, gap: 8 },
+  txRow: { backgroundColor: "#1A1A1A", borderRadius: 7, padding: 12, marginBottom: 5, flexDirection: "row", justifyContent: "space-between" }, txName: { color: COLORS.white, fontSize: 15, fontWeight: "600" }, txTime: { color: COLORS.grey, fontSize: 10, marginTop: 5 }, txAmount: { color: COLORS.buy, fontSize: 13, fontWeight: "600" }, infoBox: { backgroundColor: "#1A1A1A", borderRadius: 8, padding: 20, gap: 8 },
   tokenInfoPanel: { marginHorizontal: -15, paddingHorizontal: 15, paddingBottom: 14, backgroundColor: "#141414" },
   sectionHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 10 },
   sectionTitle: { color: COLORS.white, fontSize: 14, fontFamily: FONTS.regular, fontWeight: "700" },

@@ -1,6 +1,6 @@
+import { SkeletonRows } from "../../../components/Skeleton";
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -62,7 +62,7 @@ export default function Top10VolumeScreen() {
 
         <View style={styles.list}>
           {loading && !(rankedTokens?.length) ? (
-            <ActivityIndicator color="#C6E900" style={{ marginVertical: 24 }} />
+            <SkeletonRows count={6} />
           ) : null}
           {(rankedTokens ?? []).map((token, index) => (
               <Pressable

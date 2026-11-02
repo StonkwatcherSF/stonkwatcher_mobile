@@ -14,6 +14,7 @@ export type SearchRecent = {
   name: string;
   symbol: string;
   imageUrl?: string;
+  verified?: boolean;
   priceUsd?: number;
   marketCapUsd?: number;
   change?: number;

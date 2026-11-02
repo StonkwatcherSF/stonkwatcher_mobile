@@ -1,3 +1,4 @@
+import { SkeletonRows } from "../../components/Skeleton";
 
 import React, { useState } from "react";
 import {
@@ -7,7 +8,6 @@ import {
   Pressable,
   ScrollView,
   StatusBar,
-  ActivityIndicator,
   TextInput,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -201,7 +201,7 @@ export default function TokensScreen() {
           showsVerticalScrollIndicator={false}
         >
           {loading && !(tokens?.length) ? (
-            <ActivityIndicator color={COLORS.stonkGreen} style={{ marginTop: 28 }} />
+            <SkeletonRows count={7} />
           ) : null}
           {error && !(tokens?.length) ? (
             <Text style={styles.marketCap}>{error}</Text>
@@ -239,12 +239,12 @@ export default function TokensScreen() {
                     {token.name || token.symbol || truncateAddress(mint)}
                   </Text>
 
-                  <BadgeCheck
+                  {token.verified === true && <BadgeCheck
                     size={17}
                     color={COLORS.stonkGreen}
                     strokeWidth={2.2}
                     style={styles.verifiedIcon}
-                  />
+                  />}
                 </View>
 
                 <Text style={styles.marketCap}>

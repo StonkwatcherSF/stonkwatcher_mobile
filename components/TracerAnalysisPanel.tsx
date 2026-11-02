@@ -1,3 +1,4 @@
+import { Skeleton, SkeletonGroup } from "./Skeleton";
 import React, { memo, useCallback, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
@@ -75,7 +76,7 @@ export const Glow = memo(function Glow({ clock, end, variant }: { clock: SharedV
   );
 });
 
-function TracerAnalysisPanel({ rows, ready, visible }: { rows: AnalysisRow[]; ready: boolean; visible: boolean }) {
+function TracerAnalysisPanel({ rows, ready, visible, pending = false }: { rows: AnalysisRow[]; ready: boolean; visible: boolean; pending?: boolean }) {
   const reduceMotion = useReducedMotion();
   const clock = useSharedValue(0);
   const end = Math.max(1600, ...rows.map((row, index) => 650 + index * 180 + chunksFor(row.message).length * WORD_STEP + REVEAL_TIME)) + 700;
@@ -100,7 +101,7 @@ function TracerAnalysisPanel({ rows, ready, visible }: { rows: AnalysisRow[]; re
       <View style={styles.heading}><StonkIcon width={18} height={18} /><Text style={styles.title}>Analysis</Text></View>
       <View style={styles.body}>
         {ready ? <RevealText text={DISCLAIMER} clock={clock} start={0} /> : <Text style={styles.message}>{DISCLAIMER}</Text>}
-        {rows.map((row, index) => (
+        {pending ? <SkeletonGroup label="Loading analysis"><Skeleton height={12} /><Skeleton height={12} width="85%" style={{ marginTop: 10 }} /><Skeleton height={12} width="65%" style={{ marginTop: 10 }} /></SkeletonGroup> : rows.map((row, index) => (
           <View key={index} style={styles.row}>
             <Text style={styles.score}><RevealChunk text={row.score} clock={clock} start={650 + index * 180} /></Text>
             {ready ? <RevealText text={row.message} clock={clock} start={650 + index * 180} /> : <Text style={styles.message}>{row.message}</Text>}
@@ -111,7 +112,7 @@ function TracerAnalysisPanel({ rows, ready, visible }: { rows: AnalysisRow[]; re
   );
 }
 
-export default memo(TracerAnalysisPanel, (previous, next) => previous.ready === next.ready && previous.visible === next.visible && previous.rows.length === next.rows.length && previous.rows.every((row, i) => row.score === next.rows[i].score && row.message === next.rows[i].message));
+export default memo(TracerAnalysisPanel, (previous, next) => previous.pending === next.pending && previous.ready === next.ready && previous.visible === next.visible && previous.rows.length === next.rows.length && previous.rows.every((row, i) => row.score === next.rows[i].score && row.message === next.rows[i].message));
 
 const styles = StyleSheet.create({
   panel: { borderRadius: 12, borderWidth: 1, borderColor: "#849B00", padding: 8, backgroundColor: "#171D05", overflow: "hidden" },

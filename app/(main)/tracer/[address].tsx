@@ -1,3 +1,4 @@
+import { Skeleton, SkeletonGroup, SkeletonPage } from "../../../components/Skeleton";
 import React, { useMemo, useState } from "react";
 import {
   Pressable,
@@ -170,7 +171,7 @@ export default function TracerAnalysisScreen() {
   const [riskVisible, setRiskVisible] = useState(false);
   const [analysisTop, setAnalysisTop] = useState<number | null>(null);
   const [analysisVisible, setAnalysisVisible] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(true);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [marketOpen, setMarketOpen] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [fitKey, setFitKey] = useState(0);
@@ -264,6 +265,13 @@ export default function TracerAnalysisScreen() {
     });
   }
 
+  if (loading && !data) {
+    return <View style={styles.screen}><ScrollView contentContainerStyle={{ paddingTop: 55, paddingBottom: 100 }}>
+      <Pressable style={[styles.circleButton, { marginLeft: 20 }]} onPress={() => router.back()} accessibilityLabel="Go back"><ArrowLeft size={20} color="#F0F0F0" /></Pressable>
+      <SkeletonPage />
+    </ScrollView></View>;
+  }
+
   return (
     <View style={styles.screen}>
       <ScrollView nestedScrollEnabled contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}
@@ -305,8 +313,7 @@ export default function TracerAnalysisScreen() {
             {quote ? <Text style={styles.ttwoBadge}>◉ {quote}</Text> : null}
             <View style={styles.statusRow}>
               {status ? <Text style={styles.statusBadge}>{status}</Text> : null}
-              {analyzing ? <Text style={styles.statusBadge}>Analyzing</Text> : null}
-              {loading && !data ? <Text style={styles.statusBadge}>Loading</Text> : null}
+              {analyzing ? <SkeletonGroup label="Analyzing address"><Skeleton width={62} height={14} /></SkeletonGroup> : null}
             </View>
           </View>
         </View>
@@ -375,6 +382,7 @@ export default function TracerAnalysisScreen() {
           <TracerAnalysisPanel
             key={`${address}:${signals.map((row) => `${row.score}:${row.message}`).join("|")}`}
             rows={signals}
+            pending={analyzing && !(token?.brief.breakdown?.length || token?.brief.signals?.length || intel?.split)}
             ready={Boolean(data)}
             visible={analysisVisible}
           />

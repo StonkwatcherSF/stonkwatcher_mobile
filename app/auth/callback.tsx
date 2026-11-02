@@ -1,5 +1,6 @@
+import { SkeletonPage } from "../../components/Skeleton";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { Redirect, useLocalSearchParams } from "expo-router";
 import * as Linking from "expo-linking";
 import { createSessionFromUrl } from "../../lib/auth";
@@ -40,7 +41,7 @@ export default function AuthCallbackScreen() {
           alignItems: "center",
         }}
       >
-        <ActivityIndicator color={COLORS.stonkGreen} />
+        <SkeletonPage />
       </View>
     );
   }

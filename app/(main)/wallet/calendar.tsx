@@ -99,10 +99,10 @@ function FeeShareDashboard({
             <Text style={styles.tokenSymbol}>{symbol}</Text>
 
             <View style={styles.officialBadge}>
-              <BadgeCheck
+              {position.verified === true && <BadgeCheck
                 size={13}
                 color={COLORS.stonkLightG}
-              />
+              />}
               <Text style={styles.officialText}>
                 Demo
               </Text>

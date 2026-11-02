@@ -1,3 +1,4 @@
+import { SkeletonRows } from "../../../components/Skeleton";
 
 import React, { useState } from "react";
 import {
@@ -8,7 +9,6 @@ import {
   Pressable,
   StyleSheet,
   Alert,
-  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { List } from "lucide-react-native";
@@ -154,7 +154,7 @@ export default function TracerScreen() {
 
         <View style={styles.list}>
           {volumeLoading && !preview.length ? (
-            <ActivityIndicator color="#C6E900" style={{ marginVertical: 18 }} />
+            <SkeletonRows count={3} />
           ) : null}
           {preview.map((token, index) => (
             <Pressable
@@ -210,7 +210,7 @@ export default function TracerScreen() {
 
         <View style={styles.list}>
           {launchesLoading && !newTokens.length ? (
-            <ActivityIndicator color="#C6E900" style={{ marginVertical: 18 }} />
+            <SkeletonRows count={3} />
           ) : null}
           {newTokens.map((token) => (
             <Pressable

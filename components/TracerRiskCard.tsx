@@ -1,3 +1,4 @@
+import { Skeleton, SkeletonGroup } from "./Skeleton";
 import React, { memo, useCallback } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
@@ -45,7 +46,7 @@ function TracerRiskCard({ score, label, analyzing, ready, visible }: Props) {
       </View>
       <View style={styles.text}>
         <Text style={styles.label}><RevealChunk text="Risk " clock={clock} start={100} /><RevealChunk text="Score" clock={clock} start={180} /></Text>
-        <Text style={styles.value}><RevealChunk text={value} clock={clock} start={350} /></Text>
+        {percentage === null && analyzing ? <SkeletonGroup label="Calculating risk score" style={{ marginTop: 4 }}><Skeleton width={80} height={14} /></SkeletonGroup> : <Text style={styles.value}><RevealChunk text={value} clock={clock} start={350} /></Text>}
       </View>
       <Text style={styles.badge} accessibilityLabel={label}>
         {label.split(" ").map((word, index, words) => <RevealChunk key={index} text={word + (index < words.length - 1 ? " " : "")} clock={clock} start={550 + index * 80} />)}

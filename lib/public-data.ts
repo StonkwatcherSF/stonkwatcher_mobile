@@ -51,6 +51,7 @@ export function mergeTokenMeta(
     ...fallback,
     ...primary,
     mint,
+    verified: primary?.verified ?? fallback?.verified,
     name: pickLabel(primary?.name, fallback?.name) || primary?.name || fallback?.name,
     symbol: pickLabel(primary?.symbol, fallback?.symbol) || primary?.symbol || fallback?.symbol,
     imageUrl: imageUrl ?? undefined,
@@ -86,6 +87,7 @@ export function normalizeToken(raw: unknown): StonkFunToken | null {
   );
   return {
     mint,
+    verified: typeof row.verified === "boolean" ? row.verified : typeof row.isVerified === "boolean" ? row.isVerified : typeof row.is_verified === "boolean" ? row.is_verified : undefined,
     name: asText(row.name),
     symbol: asText(row.symbol),
     imageUrl: resolveMediaUrl(asText(row.imageUrl) ?? asText(row.logoUrl) ?? asText(row.image)) ?? undefined,

@@ -1,9 +1,10 @@
+import { SkeletonPage } from "../components/Skeleton";
 
 import React from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
-import { View, ActivityIndicator } from "react-native";
+import { View } from "react-native";
 
 import { COLORS } from "../constants/theme";
 import { AuthProvider } from "../components/AuthContext";
@@ -27,7 +28,7 @@ export default function RootLayout() {
           alignItems: "center",
         }}
       >
-        <ActivityIndicator color={COLORS.stonkGreen} />
+        <SkeletonPage />
       </View>
     );
   }

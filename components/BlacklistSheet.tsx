@@ -1,5 +1,6 @@
+import { Skeleton, SkeletonGroup, SkeletonRows } from "./Skeleton";
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Animated, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Animated, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { ChevronRight } from "lucide-react-native";
@@ -124,7 +125,7 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
               </View>
               <TextInput style={styles.input} value={address} onChangeText={(value) => { setAddress(value); slideX.setValue(0); }} autoCapitalize="none" autoCorrect={false} placeholder={`Paste a Solana ${kind.toLowerCase()} address`} placeholderTextColor="#777" accessibilityLabel={`${kind} address`} />
               {checking && (
-                <View style={styles.lookupStatus}><ActivityIndicator size="small" color={LIME} /><Text style={styles.previewSub}>Verifying {kind.toLowerCase()}…</Text></View>
+                <SkeletonRows count={1} />
               )}
               {message ? <Text style={styles.lookupError}>{message}</Text> : null}
               {match && (
@@ -165,9 +166,9 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
                       style={StyleSheet.absoluteFill}
                     />
                   </Animated.View>
-                  <Text pointerEvents="none" style={[styles.slideLabel, !canSubmit && styles.slideLabelDisabled]}>
-                    {canSubmit ? "Slide to block" : checking ? "Verifying address…" : match ? "Select a reason" : "Verify an address"}
-                  </Text>
+                  {checking ? <SkeletonGroup style={{ alignItems: "center" }} label="Verifying address"><Skeleton width={115} height={12} /></SkeletonGroup> : <Text pointerEvents="none" style={[styles.slideLabel, !canSubmit && styles.slideLabelDisabled]}>
+                    {canSubmit ? "Slide to block" : match ? "Select a reason" : "Verify an address"}
+                  </Text>}
                   <Animated.View
                     {...sliderPan.panHandlers}
                     pointerEvents={canSubmit ? "auto" : "none"}
