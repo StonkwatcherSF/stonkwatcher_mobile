@@ -10,6 +10,7 @@ import {
 import Svg, { Circle } from "react-native-svg";
 import AnimatedAmount from "./AnimatedAmount";
 import ConfirmationCelebration from "./ConfirmationCelebration";
+import ConfirmationDisintegration from "./ConfirmationDisintegration";
 import TokenImage from "./TokenImage";
 import { captureRef, releaseCapture } from "react-native-view-shot";
 import { useReducedMotion } from "react-native-reanimated";
@@ -41,6 +42,8 @@ export default function TradeConfirmation({
   const [rotation] = useState(() => new Animated.Value(0));
   const [expansion] = useState(() => new Animated.Value(64));
   const [contentOpacity] = useState(() => new Animated.Value(0));
+  const [dissolve] = useState(() => new Animated.Value(0));
+  const [disintegrating, setDisintegrating] = useState(false);
   const [fallbackWarp] = useState(() => new Animated.Value(0));
   const sourceRef = useRef<React.ElementRef<typeof View>>(null);
   const prepareRef = useRef(onPrepareExit);
@@ -69,6 +72,7 @@ export default function TradeConfirmation({
     expansion.setValue(64);
     contentOpacity.setValue(0);
     fallbackWarp.setValue(0);
+    dissolve.setValue(0);
     let cancelled = false;
 
     const spinning = Animated.loop(Animated.timing(rotation, {
@@ -104,6 +108,14 @@ export default function TradeConfirmation({
 
     const dismissTimer = setTimeout(() => {
       void (async () => {
+        if (mode === "sell") {
+          if (reduceMotion) { dismissRef.current?.(); return; }
+          setDisintegrating(true);
+          Animated.timing(dissolve, { toValue: 1, duration: 980, easing: Easing.linear, useNativeDriver: true }).start(({ finished }) => {
+            if (finished && !cancelled) dismissRef.current?.();
+          });
+          return;
+        }
         const target = await prepareRef.current?.().catch(() => null);
         if (cancelled) return;
         if (reduceMotion) { dismissRef.current?.(); return; }
@@ -131,12 +143,15 @@ export default function TradeConfirmation({
       expansion.stopAnimation();
       contentOpacity.stopAnimation();
       fallbackWarp.stopAnimation();
+      dissolve.stopAnimation();
     };
   }, [
     rotation,
     expansion,
     contentOpacity,
     fallbackWarp,
+    dissolve,
+    mode,
     reduceMotion,
   ]);
 
@@ -167,6 +182,8 @@ export default function TradeConfirmation({
         },
       ]}
     >
+      <Animated.View style={[styles.dissolveClip, { transform: [{ translateX: dissolve.interpolate({ inputRange: [0, 0.65, 1], outputRange: [0, BANNER_WIDTH, BANNER_WIDTH] }) }] }]}>
+      <Animated.View style={[styles.dissolveContent, { transform: [{ translateX: dissolve.interpolate({ inputRange: [0, 0.65, 1], outputRange: [0, -BANNER_WIDTH, -BANNER_WIDTH] }) }] }]}>
       <View ref={sourceRef} collapsable={false} style={{ opacity: flying ? 0 : 1 }}>
       <ConfirmationCelebration
         active={stage === "confirmed"}
@@ -222,12 +239,17 @@ export default function TradeConfirmation({
         </>}
       </ConfirmationCelebration>
       </View>
+      </Animated.View>
+      </Animated.View>
+      {disintegrating && <ConfirmationDisintegration progress={dissolve} />}
       {flight?.uri && <ConfirmationWarp flight={flight} onReady={() => setFlying(true)} onComplete={() => dismissRef.current?.()} onFailure={() => { setFlying(false); setFlight({ dx: flight.dx, dy: flight.dy }); }} />}
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  dissolveClip: { width: BANNER_WIDTH, overflow: "hidden", alignItems: "center" },
+  dissolveContent: { width: BANNER_WIDTH, alignItems: "center" },
   container: {
     alignItems: "center",
     justifyContent: "center",

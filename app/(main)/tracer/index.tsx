@@ -1,3 +1,4 @@
+import TokenCardPressable from "../../../components/TokenCardPressable";
 import { SkeletonRows } from "../../../components/Skeleton";
 
 import React, { useState } from "react";
@@ -157,7 +158,7 @@ export default function TracerScreen() {
             <SkeletonRows count={3} />
           ) : null}
           {preview.map((token, index) => (
-            <Pressable
+            <TokenCardPressable
               key={token.mint}
               style={styles.tokenRow}
               onPress={() => openTrace(token.mint)}
@@ -195,7 +196,7 @@ export default function TracerScreen() {
                   ♧ {formatCount(token.newHolders)}
                 </Text>
               </View>
-            </Pressable>
+            </TokenCardPressable>
           ))}
         </View>
 
@@ -213,7 +214,7 @@ export default function TracerScreen() {
             <SkeletonRows count={3} />
           ) : null}
           {newTokens.map((token) => (
-            <Pressable
+            <TokenCardPressable
               key={token.mint}
               style={styles.tokenRow}
               onPress={() => openTrace(token.mint)}
@@ -245,7 +246,7 @@ export default function TracerScreen() {
                   {formatMc(token.market?.marketCapUsd)}
                 </Text>
               </View>
-            </Pressable>
+            </TokenCardPressable>
           ))}
         </View>
       </ScrollView>

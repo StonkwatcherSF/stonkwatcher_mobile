@@ -1,3 +1,4 @@
+import TokenCardPressable from "../../../components/TokenCardPressable";
 import ConfirmationCelebration from "../../../components/ConfirmationCelebration";
 import AnimatedAmount from "../../../components/AnimatedAmount";
 
@@ -215,7 +216,7 @@ function PositionCard({
   const gradient = getPositionGradient(token, maxValue);
 
   return (
-    <Pressable onPress={onPress} disabled={!onPress}>
+    <TokenCardPressable onPress={onPress} disabled={!onPress}>
     <LinearGradient
       colors={gradient.colors}
       locations={gradient.locations}
@@ -301,7 +302,7 @@ function PositionCard({
         </View>
       </View>
     </LinearGradient>
-    </Pressable>
+    </TokenCardPressable>
   );
 }
 

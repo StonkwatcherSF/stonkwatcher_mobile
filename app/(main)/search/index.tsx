@@ -1,3 +1,4 @@
+import TokenCardPressable from "../../../components/TokenCardPressable";
 import { Skeleton, SkeletonGroup, SkeletonRows } from "../../../components/Skeleton";
 import React, { useEffect, useState } from "react";
 import {
@@ -102,7 +103,7 @@ function Sparkline({ positive }: { positive: boolean }) {
 
 function ResultRow({ item, onPress }: { item: SearchItem; onPress: () => void }) {
   return (
-    <Pressable style={styles.row} onPress={onPress} accessibilityRole="button" accessibilityLabel={`View ${item.name}`}>
+    <TokenCardPressable style={styles.row} onPress={onPress} accessibilityRole="button" accessibilityLabel={`View ${item.name}`}>
       <View style={styles.avatar}>
         <TokenImage uri={item.imageUrl} mint={item.id} style={styles.avatarImage} />
       </View>
@@ -120,7 +121,7 @@ function ResultRow({ item, onPress }: { item: SearchItem; onPress: () => void })
           {item.positive ? "▲" : "▼"} {Math.abs(item.change).toFixed(2)}%
         </Text>
       </View>
-    </Pressable>
+    </TokenCardPressable>
   );
 }
 

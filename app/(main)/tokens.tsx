@@ -1,3 +1,4 @@
+import TokenCardPressable from "../../components/TokenCardPressable";
 import { SkeletonRows } from "../../components/Skeleton";
 
 import React, { useState } from "react";
@@ -196,6 +197,7 @@ export default function TokensScreen() {
           scrollEventThrottle={16}
           style={styles.tokenList}
           contentContainerStyle={{
+            paddingHorizontal: 10,
             paddingBottom: 115,
           }}
           showsVerticalScrollIndicator={false}
@@ -213,7 +215,7 @@ export default function TokensScreen() {
             const change = token.market?.priceChange24h ?? 0;
             const mint = tokenMint(token);
             return (
-            <Pressable
+            <TokenCardPressable
               key={mint}
               style={styles.tokenCard}
               onPress={() => openToken(token)}
@@ -273,7 +275,7 @@ export default function TokensScreen() {
                   {Math.abs(change).toFixed(2)}%
                 </Text>
               </View>
-            </Pressable>
+            </TokenCardPressable>
             );
           })}
         </ScrollView>

@@ -1,3 +1,4 @@
+import TokenCardPressable from "../../../components/TokenCardPressable";
 import { SkeletonRows } from "../../../components/Skeleton";
 import React, { useState } from "react";
 import {
@@ -65,7 +66,7 @@ export default function Top10VolumeScreen() {
             <SkeletonRows count={6} />
           ) : null}
           {(rankedTokens ?? []).map((token, index) => (
-              <Pressable
+              <TokenCardPressable
                 key={token.mint}
                 style={styles.tokenRow}
                 onPress={() =>
@@ -90,7 +91,7 @@ export default function Top10VolumeScreen() {
                   </Text>
                   <Text style={styles.subText}>♧ {formatCount(token.newHolders)}</Text>
                 </View>
-              </Pressable>
+              </TokenCardPressable>
             ))}
         </View>
       </ScrollView>
