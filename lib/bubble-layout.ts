@@ -27,7 +27,8 @@ export const LINKED_PALETTES: Palette[] = [
   { fill: "#9b7eed", stroke: "#ddd6fe" },
 ];
 
-const TOP_HOLDERS = 100;
+export const BUBBLEMAP_V2_TOP_HOLDERS = 250;
+const TOP_HOLDERS = BUBBLEMAP_V2_TOP_HOLDERS;
 const R_MIN = 9;
 const R_MAX = 40;
 const COLLIDE_PAD = 11;
@@ -170,6 +171,9 @@ export function visibleBubbleMap(data: BubbleMapData | null | undefined, holderC
   const keep = new Set<string>();
   const ranked = [...usable].sort((a, b) => nodeSize(b) - nodeSize(a));
   for (const node of ranked.slice(0, holderCap)) keep.add(node.id);
+  for (const node of usable) {
+    if (node.isCreator) keep.add(node.id);
+  }
   const nodes = usable.filter((node) => keep.has(node.id));
   const visible = new Set(nodes.map((node) => node.id));
   const { index, ranked: groups } = componentsOf(nodes, linksIn, usable);
@@ -369,4 +373,56 @@ export function bubbleHolderStats(nodes: BubbleMapNode[], links: BubbleMapLink[]
     }
   }
   return { isolated, linked, dev, total: wallets.length };
+}
+
+export type HolderListMember = BubbleMapNode & { rank: number; pal: Palette };
+export type HolderListGroup = {
+  key: string;
+  clusterNo: number | null;
+  pal: Palette;
+  share: number;
+  kind: string;
+  members: HolderListMember[];
+};
+
+export function holderDistribution(nodes: BubbleMapNode[], links: BubbleMapLink[]): HolderListGroup[] {
+  const wallets = nodes.filter(
+    (node) => node.kind !== "token" && !node.isPool && !node.isMagic && !node.isTimeNode,
+  );
+  const rankOf = new Map(
+    [...wallets]
+      .sort((a, b) => (b.percentage ?? 0) - (a.percentage ?? 0) || b.amount - a.amount)
+      .map((node, index) => [node.id, node.rank && node.rank > 0 ? node.rank : index + 1]),
+  );
+  const { ranked } = componentsOf(wallets, links, wallets);
+  let clusterNo = 0;
+  return ranked
+    .map(([, ids], index) => {
+      const members = ids
+        .map((id) => wallets.find((node) => node.id === id))
+        .filter((node): node is BubbleMapNode => Boolean(node))
+        .sort((a, b) => (rankOf.get(a.id) ?? 999) - (rankOf.get(b.id) ?? 999));
+      const linked = members.length > 1;
+      const hasCreator = members.some((node) => node.isCreator);
+      const pal = paletteForComponent(members.length, index, hasCreator);
+      const kind = hasCreator ? "dev" : linked ? members[0]?.clusterKind || "cluster" : "isolated";
+      return {
+        key: `g:${members[0]?.id ?? index}`,
+        clusterNo: linked ? 0 : null,
+        pal,
+        share: members.reduce((sum, node) => sum + (node.percentage ?? 0), 0),
+        kind,
+        members: members.map((node) => ({
+          ...node,
+          rank: rankOf.get(node.id) ?? 0,
+          pal,
+        })),
+      };
+    })
+    .sort((a, b) => (a.members[0]?.rank ?? 999) - (b.members[0]?.rank ?? 999))
+    .map((group) => {
+      if (group.members.length <= 1) return group;
+      clusterNo += 1;
+      return { ...group, clusterNo };
+    });
 }

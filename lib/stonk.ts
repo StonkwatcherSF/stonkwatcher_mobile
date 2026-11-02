@@ -134,13 +134,14 @@ async function publicTokenTrace(mint: string): Promise<TracerPayload> {
       token: null,
     };
   }
+  const creatorNode = bubble?.bubbleMap?.nodes?.find((node) => node.isCreator);
   const view: TracerTokenView = {
     mint: token.mint,
     name: token.name ?? null,
     symbol: token.symbol ?? null,
-    creatorAddress: token.creator ?? null,
-    devHoldPct: info?.stats.devPct ?? null,
-    supply: null,
+    creatorAddress: token.creator ?? creatorNode?.address ?? null,
+    devHoldPct: info?.stats.devPct ?? creatorNode?.percentage ?? null,
+    supply: bubble?.supply ?? bubble?.bubbleMap?.summary?.supply ?? null,
     launchCount: 1,
     stonkLaunchCount: 1,
     outsideLaunchCount: 0,
@@ -159,9 +160,9 @@ async function publicTokenTrace(mint: string): Promise<TracerPayload> {
       volume24hUsd: market?.volume24hUsd ?? token.market?.volume24hUsd ?? null,
       firstSlot: null,
       lastAnalyzedAt: null,
-      devAmount: null,
-      holderCount: info?.rewards?.holders ?? market?.holders ?? null,
-      score: bubble?.bubbleMap?.intel?.score ?? null,
+      devAmount: creatorNode?.amount ?? null,
+      holderCount: market?.holders ?? info?.rewards?.holders ?? null,
+      score: null,
       breakdown: [],
       signals: info
         ? [
@@ -182,11 +183,63 @@ async function publicTokenTrace(mint: string): Promise<TracerPayload> {
   };
 }
 
+async function overlayLiveMarket(payload: TracerPayload): Promise<TracerPayload> {
+  const token = payload.token;
+  if (payload.mode !== "token" || !token?.mint) return payload;
+  const mint = token.mint;
+  const [market, meta, info] = await Promise.all([
+    fetchMarket(mint).catch(() => null),
+    fetchTokenByMint(mint).catch(() => null),
+    fetchTokenInfo(mint).catch(() => null),
+  ]);
+  const merged = mergeTokenMeta(
+    {
+      mint,
+      name: token.name ?? undefined,
+      symbol: token.symbol ?? undefined,
+      imageUrl: token.brief.imageUrl ?? undefined,
+      creator: token.creatorAddress ?? undefined,
+      status: token.brief.status ?? undefined,
+      quote: token.brief.quoteSymbol ? { symbol: token.brief.quoteSymbol } : undefined,
+      market: {
+        priceUsd: token.brief.priceUsd ?? undefined,
+        marketCapUsd: token.brief.marketCapUsd ?? undefined,
+        volume24hUsd: token.brief.volume24hUsd ?? undefined,
+        liquidityUsd: token.brief.liquidityUsd ?? undefined,
+      },
+    },
+    meta,
+  );
+  return {
+    ...payload,
+    token: {
+      ...token,
+      name: merged?.name ?? token.name,
+      symbol: merged?.symbol ?? token.symbol,
+      creatorAddress: token.creatorAddress || merged?.creator || null,
+      devHoldPct: token.devHoldPct ?? info?.stats.devPct ?? null,
+      brief: {
+        ...token.brief,
+        imageUrl: merged?.imageUrl ?? token.brief.imageUrl,
+        quoteSymbol: token.brief.quoteSymbol ?? merged?.quote?.symbol ?? null,
+        status: token.brief.status ?? merged?.status ?? null,
+        priceUsd: market?.priceUsd ?? merged?.market?.priceUsd ?? token.brief.priceUsd,
+        marketCapUsd: market?.marketCapUsd ?? merged?.market?.marketCapUsd ?? token.brief.marketCapUsd,
+        liquidityUsd: token.brief.liquidityUsd ?? merged?.market?.liquidityUsd ?? null,
+        volume24hUsd: market?.volume24hUsd ?? merged?.market?.volume24hUsd ?? token.brief.volume24hUsd,
+        holderCount: market?.holders ?? token.brief.holderCount ?? info?.rewards?.holders ?? null,
+        devAmount: token.brief.devAmount,
+      },
+    },
+  };
+}
+
 export async function fetchTracer(address: string, fresh = false) {
   try {
-    return await apiGet<TracerPayload>(`/api/tracer/${encodeURIComponent(address)}`, {
+    const payload = await apiGet<TracerPayload>(`/api/tracer/${encodeURIComponent(address)}`, {
       fresh: fresh ? 1 : undefined,
     });
+    return overlayLiveMarket(payload);
   } catch (error) {
     if (error instanceof ApiError && error.status === 400) {
       throw new Error("Enter a valid Solana wallet or token mint.");
@@ -216,6 +269,10 @@ export async function fetchBubbleMap(mint: string) {
         computedAt: raw.computedAt ?? body.computedAt,
         edition: raw.edition ?? body.edition ?? "v2",
         intel: raw.intel ?? body.intel,
+        summary: {
+          ...raw.summary,
+          supply: raw.summary?.supply ?? body.supply ?? undefined,
+        },
       }
     : undefined;
   const next = { ...body, bubbleMap, edition: body.edition ?? bubbleMap?.edition, computedAt: body.computedAt ?? bubbleMap?.computedAt };

@@ -95,9 +95,17 @@ export function prettySymbol(symbol?: string | null) {
 
 export function riskLabel(score?: number | null) {
   if (score == null || !Number.isFinite(score)) return "Unscored";
-  if (score <= 30) return "Low Risk";
-  if (score <= 60) return "Moderate";
-  return "High Risk";
+  if (score >= 76) return "Critical Risk";
+  if (score >= 51) return "High Risk";
+  if (score >= 26) return "Moderate";
+  return "Low Risk";
+}
+
+export function intelScoreLabel(label?: "healthy" | "mixed" | "concentrated" | null, score?: number | null) {
+  if (label === "healthy" || (score != null && score >= 70)) return "Healthy";
+  if (label === "mixed" || (score != null && score >= 45)) return "Mixed";
+  if (label === "concentrated" || score != null) return "Concentrated";
+  return "Unscored";
 }
 
 export function signedPoints(points?: number | null) {

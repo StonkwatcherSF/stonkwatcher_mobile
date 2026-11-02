@@ -207,7 +207,21 @@ export type BubbleMapNode = {
   isPool: boolean;
   isMagic?: boolean;
   isTimeNode?: boolean;
+  isSupernode?: boolean;
+  isFresh?: boolean;
+  hiddenByDefault?: boolean;
+  rank?: number;
+  group?: number;
   clusterKind: BubbleClusterKind;
+};
+
+export type BubbleSupplySplit = {
+  poolPct?: number;
+  exchangePct?: number;
+  teamPct?: number;
+  retailPct?: number;
+  clusterPct?: number;
+  top10Pct?: number;
 };
 
 export type BubbleMapData = {
@@ -223,9 +237,13 @@ export type BubbleMapData = {
   intel?: {
     score?: number;
     scoreLabel?: "healthy" | "mixed" | "concentrated";
+    split?: BubbleSupplySplit;
     clusterCount?: number;
     magicCount?: number;
     bundleWallets?: number;
+    timeGroups?: number;
+    freshCount?: number;
+    supernodeCount?: number;
   };
 };
 

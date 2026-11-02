@@ -5,9 +5,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   useWindowDimensions,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
@@ -26,7 +28,11 @@ import BubbleIcon from "../../../assets/icons/bubble-map.svg";
 import TokenImage from "../../../components/TokenImage";
 import HolderBubbleMap from "../../../components/HolderBubbleMap";
 import { useTracer } from "../../../hooks/useTracer";
-import { bubbleHolderStats } from "../../../lib/bubble-layout";
+import {
+  BUBBLEMAP_V2_TOP_HOLDERS,
+  holderDistribution,
+  visibleBubbleMap,
+} from "../../../lib/bubble-layout";
 import {
   compactUsd,
   formatAge,
@@ -34,6 +40,7 @@ import {
   formatPct,
   formatPrice,
   formatTokenAmount,
+  intelScoreLabel,
   prettySymbol,
   riskLabel,
   signedPoints,
@@ -102,7 +109,7 @@ function snapshotRows(payload: TracerPayload | null) {
   ];
 }
 
-function analysisRows(payload: TracerPayload | null) {
+function analysisRows(payload: TracerPayload | null, intel?: BubbleMapData["intel"]) {
   const breakdown = payload?.token?.brief.breakdown ?? [];
   if (breakdown.length) {
     return breakdown.map((row) => ({
@@ -127,7 +134,30 @@ function analysisRows(payload: TracerPayload | null) {
       message: `${row.name || truncateAddress(row.mint)} launched ${formatAge(row.createdAt)}.`,
     }));
   }
+  const split = intel?.split;
+  if (split) {
+    return [
+      {
+        score: intel.score != null ? String(Math.round(intel.score)) : "v2",
+        message: `Holder map is ${intelScoreLabel(intel.scoreLabel, intel.score).toLowerCase()}. Top 10 ${formatPct(split.top10Pct)} · clusters ${formatPct(split.clusterPct)} · pool ${formatPct(split.poolPct)}.`,
+      },
+      {
+        score: String(intel.clusterCount ?? 0),
+        message: `${intel.clusterCount ?? 0} linked clusters · ${intel.bundleWallets ?? 0} bundle wallets · team ${formatPct(split.teamPct)}.`,
+      },
+    ];
+  }
   return [{ score: "—", message: "Analysis is still running. Signals appear when the job finishes." }];
+}
+
+function clusterTitle(kind: string, clusterNo: number | null) {
+  if (clusterNo != null) {
+    const label = kind === "dev" ? "Dev cluster" : kind === "isolated" ? "Isolated" : `${kind} cluster`;
+    return `${label} ${clusterNo}`;
+  }
+  if (kind === "dev") return "Dev";
+  if (kind === "isolated") return "Isolated";
+  return kind;
 }
 
 export default function TracerAnalysisScreen() {
@@ -140,6 +170,8 @@ export default function TracerAnalysisScreen() {
   const [zoom, setZoom] = useState(1);
   const [fitKey, setFitKey] = useState(0);
   const [holdersOpen, setHoldersOpen] = useState(false);
+  const [groupClusters, setGroupClusters] = useState(false);
+  const [holderQuery, setHolderQuery] = useState("");
   const mapWidth = Math.max(260, Math.min(width - 40, 420));
   const mapHeight = 395;
   const { data, bubbleMap, loading, bubbleLoading, analyzing, error } = useTracer(address);
@@ -147,19 +179,73 @@ export default function TracerAnalysisScreen() {
   const isWallet = data?.mode === "wallet";
   const mapData: BubbleMapData | null =
     bubbleMap ?? (token?.bubbleMap?.edition === "v2" ? token.bubbleMap : null);
-  const holders = useMemo(
-    () => bubbleHolderStats(mapData?.nodes ?? [], mapData?.links ?? []),
+  const visibleMap = useMemo(
+    () => visibleBubbleMap(mapData, BUBBLEMAP_V2_TOP_HOLDERS),
     [mapData],
+  );
+  const holderGroups = useMemo(
+    () => holderDistribution(visibleMap?.nodes ?? [], visibleMap?.links ?? []),
+    [visibleMap],
   );
   const title = isWallet
     ? truncateAddress(address, 4)
     : token?.name || token?.symbol || truncateAddress(address, 4);
   const symbol = isWallet ? "Wallet" : prettySymbol(token?.symbol) || truncateAddress(address, 4);
   const quote = token?.brief.quoteSymbol;
-  const score = token?.brief.score ?? mapData?.intel?.score ?? null;
-  const snapshot = snapshotRows(data);
-  const signals = analysisRows(data);
+  const intel = mapData?.intel;
+  const score = token?.brief.score ?? null;
+  const creatorNode = mapData?.nodes?.find((node) => node.isCreator);
+  const supply = token?.supply ?? mapData?.summary?.supply ?? null;
+  const devHold = token?.devHoldPct ?? creatorNode?.percentage ?? null;
+  const devAmount = token?.brief.devAmount ?? creatorNode?.amount ?? null;
+  const clusterCount =
+    intel?.clusterCount ??
+    holderGroups.filter((group) => group.clusterNo != null).length;
+  const snapshot = snapshotRows(
+    token
+      ? {
+          ...(data ?? { mode: "token", address, token }),
+          mode: "token",
+          address,
+          token: {
+            ...token,
+            supply,
+            devHoldPct: devHold,
+            clusterCount,
+            brief: { ...token.brief, devAmount },
+          },
+        }
+      : data,
+  );
+  const signals = analysisRows(data, intel);
   const status = token?.brief.status;
+  const holderRows = useMemo(() => {
+    const q = holderQuery.trim().toLowerCase();
+    const filtered = holderGroups
+      .map((group) => ({
+        ...group,
+        members: q
+          ? group.members.filter((member) => {
+              const address = (member.address ?? member.label).toLowerCase();
+              return address.includes(q) || member.label.toLowerCase().includes(q);
+            })
+          : group.members,
+      }))
+      .filter((group) => group.members.length > 0);
+    if (groupClusters) return filtered;
+    return [
+      {
+        key: "all",
+        clusterNo: null,
+        pal: { fill: "#6a737c", stroke: "#d0d6dc" },
+        share: 0,
+        kind: "all",
+        members: filtered
+          .flatMap((group) => group.members)
+          .sort((a, b) => a.rank - b.rank),
+      },
+    ];
+  }, [groupClusters, holderGroups, holderQuery]);
 
   function shareTrace() {
     void shareExternally({
@@ -231,10 +317,10 @@ export default function TracerAnalysisScreen() {
               ) : (
                 <>
                   <InfoLine label="CA" value={truncateAddress(token?.mint || address)} />
-                  <InfoLine label="Creator" value={truncateAddress(token?.creatorAddress)} />
-                  <InfoLine label="Supply" value={formatTokenAmount(token?.supply)} />
-                  <InfoLine label="Tokens" value={formatTokenAmount(token?.brief.devAmount)} />
-                  <InfoLine label="Dev Hold" value={formatPct(token?.devHoldPct)} />
+                  <InfoLine label="Creator" value={truncateAddress(token?.creatorAddress || creatorNode?.address)} />
+                  <InfoLine label="Supply" value={formatTokenAmount(supply)} />
+                  <InfoLine label="Tokens" value={formatTokenAmount(devAmount)} />
+                  <InfoLine label="Dev Hold" value={formatPct(devHold)} />
                 </>
               )}
             </View>
@@ -259,9 +345,17 @@ export default function TracerAnalysisScreen() {
           <View style={styles.riskRing}><View style={styles.riskRingInner} /></View>
           <View style={styles.riskText}>
             <Text style={styles.riskLabel}>Risk Score</Text>
-            <Text style={styles.riskValue}>{score != null ? `${Math.round(score)} / 100` : analyzing ? "Scoring…" : "— / 100"}</Text>
+            <Text style={styles.riskValue}>
+              {score != null
+                ? `${Math.round(score)} / 100`
+                : intel?.score != null
+                  ? `${Math.round(intel.score)} / 100`
+                  : analyzing
+                    ? "Scoring…"
+                    : "— / 100"}
+            </Text>
           </View>
-          <Text style={styles.riskBadge}>{riskLabel(score)}</Text>
+          <Text style={styles.riskBadge}>{score != null ? riskLabel(score) : intelScoreLabel(intel?.scoreLabel, intel?.score)}</Text>
         </View>
 
         <View style={styles.analysisPanel}>
@@ -281,7 +375,15 @@ export default function TracerAnalysisScreen() {
         <View style={styles.mapPanel}>
           <View style={styles.mapTitleRow}><BubbleIcon width={18} height={18} /><Text style={styles.mapTitle}>Holder Bubble Map</Text></View>
           <View style={styles.mapToolbar}>
-            <Text style={styles.mapSubtitle}>{`${Math.min(holders.total, 100)} holders · ${mapData?.intel?.clusterCount ?? token?.clusterCount ?? 0} clusters · v2`}</Text>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={styles.mapSubtitle}>{`${visibleMap?.nodes?.length ?? 0} holders · ${clusterCount} clusters · v2`}</Text>
+              {intel?.score != null ? (
+                <Text style={styles.mapIntel}>
+                  {`Score ${Math.round(intel.score)} · ${intelScoreLabel(intel.scoreLabel, intel.score)}`}
+                  {intel.split?.top10Pct != null ? ` · Top10 ${formatPct(intel.split.top10Pct)}` : ""}
+                </Text>
+              ) : null}
+            </View>
             <Pressable
               style={styles.fitButton}
               onPress={() => {
@@ -325,9 +427,57 @@ export default function TracerAnalysisScreen() {
           </Pressable>
           {holdersOpen && (
             <View style={styles.holdersList}>
-              <InfoLine label="Isolated holders" value={String(holders.isolated)} />
-              <InfoLine label="Linked cluster" value={String(holders.linked)} />
-              <InfoLine label="Dev cluster" value={String(holders.dev)} />
+              <View style={styles.holderListToolbar}>
+                <Pressable onPress={() => setGroupClusters((value) => !value)}>
+                  <Text style={styles.holderToggle}>{groupClusters ? "Ungroup clusters" : "Group clusters"}</Text>
+                </Pressable>
+                <Text style={styles.holderMeta}>{`${holderGroups.reduce((sum, group) => sum + group.members.length, 0)} wallets`}</Text>
+              </View>
+              <TextInput
+                value={holderQuery}
+                onChangeText={setHolderQuery}
+                placeholder="Search address"
+                placeholderTextColor="#6F6F6F"
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={styles.holderSearch}
+              />
+              <ScrollView nestedScrollEnabled style={styles.holderScroller}>
+                {holderRows.map((group) => (
+                  <View key={group.key}>
+                    {groupClusters && group.clusterNo != null ? (
+                      <View style={styles.clusterHeader}>
+                        <View style={[styles.holderDot, { backgroundColor: group.pal.fill }]} />
+                        <Text style={styles.clusterTitle}>{clusterTitle(group.kind, group.clusterNo)}</Text>
+                        <Text style={styles.holderShare}>{formatPct(group.share)}</Text>
+                      </View>
+                    ) : null}
+                    {group.members.map((member) => (
+                      <Pressable
+                        key={member.id}
+                        style={styles.holderRow}
+                        onPress={() => {
+                          const value = member.address || member.label;
+                          if (!value) return;
+                          void Clipboard.setStringAsync(value);
+                        }}
+                      >
+                        <Text style={styles.holderRank}>#{member.rank}</Text>
+                        <View style={[styles.holderDot, { backgroundColor: member.isCreator ? "#f2c94c" : member.pal.fill }]} />
+                        <Text style={styles.holderAddress} numberOfLines={1}>
+                          {member.isCreator ? "Dev" : truncateAddress(member.address || member.label)}
+                          {member.isMagic ? " · Magic" : ""}
+                          {member.clusterKind && member.clusterKind !== "organic" ? ` · ${member.clusterKind}` : ""}
+                        </Text>
+                        <Text style={styles.holderShare}>{formatPct(member.percentage)}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ))}
+                {!holderRows.some((group) => group.members.length) ? (
+                  <Text style={styles.holderEmpty}>No holders match.</Text>
+                ) : null}
+              </ScrollView>
             </View>
           )}
         </View>
@@ -391,7 +541,7 @@ const styles = StyleSheet.create({
   mapPanel: { backgroundColor: "#080D18", borderRadius: 9, overflow: "hidden", paddingBottom: 13 },
   mapTitle: { color: LIME, fontSize: 16, fontWeight: "600" },
   mapToolbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 12, gap: 8 },
-  mapSubtitle: { color: MUTED, fontSize: 11, flex: 1 },
+  mapSubtitle: { color: MUTED, fontSize: 11 },
   fitButton: { backgroundColor: LIME, borderRadius: 5, paddingHorizontal: 12, paddingVertical: 9, flexDirection: "row", gap: 6, alignItems: "center" },
   fitText: { color: "#0B1000", fontSize: 13, fontWeight: "700" },
   mapCanvas: { backgroundColor: "#080D18", overflow: "hidden", justifyContent: "center", alignItems: "center" },
@@ -402,7 +552,21 @@ const styles = StyleSheet.create({
   mapHint: { color: "#8C8C8C", fontSize: 10, paddingHorizontal: 13, marginTop: 14 },
   holdersButton: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: "#879C00", borderRadius: 5, paddingHorizontal: 12, paddingVertical: 11, marginTop: 13, marginLeft: 13 },
   holdersButtonText: { color: "#FFFFFF", fontSize: 11 },
-  holdersList: { paddingHorizontal: 13, paddingTop: 13, gap: 10 },
+  holdersList: { paddingHorizontal: 13, paddingTop: 13, gap: 8 },
+  holderListToolbar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  holderToggle: { color: LIME, fontSize: 11, fontWeight: "600" },
+  holderMeta: { color: MUTED, fontSize: 10 },
+  holderSearch: { height: 36, borderRadius: 6, backgroundColor: "#111827", color: "#F2F2F2", paddingHorizontal: 10, fontSize: 12 },
+  holderScroller: { maxHeight: 360 },
+  clusterHeader: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8 },
+  clusterTitle: { color: "#F2F2F2", fontSize: 12, fontWeight: "600", flex: 1 },
+  holderRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 7 },
+  holderRank: { color: MUTED, fontSize: 10, width: 28 },
+  holderDot: { width: 8, height: 8, borderRadius: 4 },
+  holderAddress: { color: "#E8E8E8", fontSize: 11, flex: 1 },
+  holderShare: { color: MUTED, fontSize: 11 },
+  holderEmpty: { color: MUTED, fontSize: 11, paddingVertical: 12 },
+  mapIntel: { color: "#C6E900", fontSize: 10 },
   demoNote: { color: "#898989", textAlign: "center", fontSize: 10, lineHeight: 15, marginTop: 9 },
   tradeArea: { position: "absolute", bottom: 96, left: 16, right: 16 },
   tradeButton: { height: 44, borderRadius: 5, backgroundColor: LIME, alignItems: "center", justifyContent: "center" },
