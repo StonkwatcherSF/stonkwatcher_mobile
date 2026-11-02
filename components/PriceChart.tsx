@@ -3,6 +3,7 @@ import { PanResponder, StyleSheet, View } from "react-native";
 import Svg, { Line, Rect, Text as SvgLabel } from "react-native-svg";
 import { COLORS } from "../constants/theme";
 import { chartAxisLabel } from "../lib/format";
+import { applyLiveClose } from "../lib/public-data";
 import type { OhlcvCandle } from "../lib/types";
 
 const HEIGHT = 255;
@@ -15,6 +16,7 @@ type Props = {
   candles: OhlcvCandle[];
   marketCapUsd?: number | null;
   priceUsd?: number | null;
+  step?: number;
 };
 
 function scaleFactor(marketCapUsd?: number | null, priceUsd?: number | null) {
@@ -22,10 +24,10 @@ function scaleFactor(marketCapUsd?: number | null, priceUsd?: number | null) {
   return 1;
 }
 
-export default function PriceChart({ width, candles, marketCapUsd, priceUsd }: Props) {
+export default function PriceChart({ width, candles, marketCapUsd, priceUsd, step = 60 }: Props) {
   const chartWidth = Math.max(160, width - AXIS_WIDTH);
   const visibleCount = Math.max(18, Math.floor((chartWidth - 8) / BAR_STEP));
-  const seriesKey = `${candles[0]?.time ?? 0}:${candles.length}:${visibleCount}`;
+  const seriesKey = `${candles[0]?.time ?? 0}:${visibleCount}`;
   const [panState, setPanState] = useState({ key: seriesKey, offset: 0, origin: 0 });
   const offset = panState.key === seriesKey ? panState.offset : 0;
 
@@ -41,18 +43,8 @@ export default function PriceChart({ width, candles, marketCapUsd, priceUsd }: P
       low: row.low * factor,
       close: row.close * factor,
     }));
-    if (live && live > 0 && rows.length) {
-      const last = rows[rows.length - 1];
-      const ref = last.close > 0 ? last.close : last.open;
-      const ratio = ref > 0 ? live / ref : 0;
-      if (ratio >= 0.55 && ratio <= 1.8) {
-        last.close = live;
-        last.high = Math.max(last.high, live);
-        last.low = Math.min(last.low, live);
-      }
-    }
-    return rows;
-  }, [candles, factor, live]);
+    return applyLiveClose(rows, live, step);
+  }, [candles, factor, live, step]);
 
   const maxOffset = Math.max(0, series.length - visibleCount);
   const clamped = Math.min(maxOffset, Math.max(0, offset));

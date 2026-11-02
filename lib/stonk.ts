@@ -5,6 +5,7 @@ import {
   fetchPublicTrades,
   fetchStonkFunTokens,
   mergeTokenMeta,
+  mergeTrades,
   normalizeToken,
 } from "./public-data";
 import { tokenMint } from "./solana";
@@ -13,8 +14,8 @@ import type {
   AnalyzeResponse,
   BubbleMapResponse,
   IntelResponse,
+  IntelTransfer,
   MarketQuote,
-  OhlcvResponse,
   QuoteAsset,
   QuoteCatalog,
   TokensPage,
@@ -80,30 +81,30 @@ export async function fetchTokenByMint(mint: string) {
       .catch(() => null),
     fetchDexscreenerToken(mint).catch(() => null),
   ]);
-  return mergeTokenMeta(board, dex);
+  return mergeTokenMeta(dex, board);
 }
 
 export async function fetchOhlcv(mint: string, tf: string, spotUsd?: number | null) {
-  try {
-    const body = await apiGet<OhlcvResponse>("/api/ohlcv", { tokenAddress: mint, tf });
-    const live = (body.candles?.length ?? 0) >= 8 && body.source !== "dexscreener";
-    if (live) return body;
-  } catch (error) {
-    if (!isUnauthorized(error) && !(error instanceof ApiError && error.status >= 500)) {
-      /* still try the public candles */
-    }
-  }
   return { candles: await fetchPublicOhlcv(mint, tf, spotUsd), source: "geckoterminal" };
 }
 
+function delay(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
 export async function fetchIntel(mint: string, name?: string, symbol?: string) {
-  try {
-    const body = await apiGet<IntelResponse>("/api/intel", { mint, name, symbol });
-    if (body.rows?.length) return body;
-  } catch {
-    /* use public tape */
-  }
-  return { rows: await fetchPublicTrades(mint, symbol || name), source: "geckoterminal" };
+  const geckoPromise = fetchPublicTrades(mint, symbol || name);
+  const intelPromise = apiGet<IntelResponse>("/api/intel", { mint, name, symbol })
+    .then((body) => body.rows ?? [])
+    .catch(() => [] as IntelTransfer[]);
+  const [gecko, intel] = await Promise.all([
+    geckoPromise,
+    Promise.race([intelPromise, delay(900).then(() => [] as IntelTransfer[])]),
+  ]);
+  const rows = mergeTrades(gecko, intel);
+  if (rows.length) return { rows, source: gecko.length ? "geckoterminal" : "intel" };
+  const late = await intelPromise;
+  return { rows: late, source: "intel" };
 }
 
 export const fetchTokenInfo = fetchPublicTokenInfo;

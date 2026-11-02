@@ -59,6 +59,8 @@ export function formatAge(iso?: string | number | null) {
   if (!Number.isFinite(ms) || ms <= 0) return "—";
   const delta = Date.now() - ms;
   if (delta < 0) return "just now";
+  if (delta < 8_000) return "just now";
+  if (delta < 60_000) return `${Math.max(1, Math.floor(delta / 1000))}s ago`;
   const minutes = Math.floor(delta / 60_000);
   if (minutes < 1) return "just now";
   if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;

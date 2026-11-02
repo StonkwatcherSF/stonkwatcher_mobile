@@ -16,9 +16,20 @@ export function useTokenMarket(mint?: string) {
         fetchTokenByMint(mint!),
         fetchMarket(mint!).catch(() => null),
       ]);
-      return { token, market };
+      return {
+        token,
+        market: {
+          priceUsd: token?.market?.priceUsd ?? market?.priceUsd ?? null,
+          marketCapUsd: token?.market?.marketCapUsd ?? market?.marketCapUsd ?? null,
+          volume24hUsd: token?.market?.volume24hUsd ?? market?.volume24hUsd ?? null,
+          holders: market?.holders ?? null,
+          buys: market?.buys ?? null,
+          sells: market?.sells ?? null,
+        },
+      };
     },
     [mint],
     valid,
+    6_000,
   );
 }

@@ -143,8 +143,36 @@ const TF_MAP: Record<string, { timeframe: string; aggregate: number; step: numbe
   "1d": { timeframe: "day", aggregate: 1, step: 86400 },
 };
 
-const OHLCV_TTL_MS = 90_000;
+export function ohlcvStep(tf: string) {
+  return (TF_MAP[tf] ?? TF_MAP["5m"]).step;
+}
+
+const OHLCV_TTL_MS = 12_000;
+const POOL_TTL_MS = 10 * 60_000;
+const TRADE_TTL_MS = 4_000;
 const ohlcvCache = new Map<string, { at: number; candles: OhlcvCandle[] }>();
+const poolCache = new Map<string, { at: number; pool: PoolRef | null }>();
+const poolInflight = new Map<string, Promise<PoolRef | null>>();
+const tradeCache = new Map<string, { at: number; rows: IntelTransfer[] }>();
+
+type PoolRef = { address: string; tokenIsBase: boolean };
+
+async function jsonGet<T>(url: string, timeoutMs = 8_000): Promise<T | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function formatGeckoCandles(raw: [number, number, number, number, number, number][]): OhlcvCandle[] {
   const rows: OhlcvCandle[] = [];
@@ -183,18 +211,46 @@ function tradedRecently(candles: OhlcvCandle[]) {
   return Math.floor(Date.now() / 1000) - last <= 72 * 3600;
 }
 
-async function fetchGeckoPool(mint: string) {
-  const poolsRes = await fetch(
-    `https://api.geckoterminal.com/api/v2/networks/solana/tokens/${mint}/pools`,
-    { headers: { Accept: "application/json" } },
-  );
-  if (!poolsRes.ok) return null;
-  const poolsBody = (await poolsRes.json()) as {
+export function applyLiveClose(
+  candles: OhlcvCandle[],
+  spot?: number | null,
+  step = 60,
+  band = { min: 0.2, max: 5 },
+): OhlcvCandle[] {
+  if (!candles.length || !spot || spot <= 0) return candles;
+  const last = candles[candles.length - 1];
+  const ref = last.close > 0 ? last.close : last.open;
+  if (!(ref > 0)) return candles;
+  const ratio = spot / ref;
+  if (ratio < band.min || ratio > band.max) return candles;
+  const bucket = Math.floor(Date.now() / 1000 / step) * step;
+  const rows = candles.map((row) => ({ ...row }));
+  const tip = rows[rows.length - 1];
+  if (tip.time < bucket) {
+    rows.push({
+      time: bucket,
+      open: tip.close,
+      high: Math.max(tip.close, spot),
+      low: Math.min(tip.close, spot),
+      close: spot,
+      volume: 0,
+    });
+    return rows;
+  }
+  tip.close = spot;
+  tip.high = Math.max(tip.high, spot);
+  tip.low = Math.min(tip.low, spot);
+  return rows;
+}
+
+async function fetchGeckoPool(mint: string): Promise<PoolRef | null> {
+  const poolsBody = await jsonGet<{
     data?: {
       attributes?: { address?: string; reserve_in_usd?: string; volume_usd?: { h24?: string } };
       relationships?: { base_token?: { data?: { id?: string } }; quote_token?: { data?: { id?: string } } };
     }[];
-  };
+  }>(`https://api.geckoterminal.com/api/v2/networks/solana/tokens/${mint}/pools`);
+  if (!poolsBody) return null;
   const tokenId = `solana_${mint}`;
   const rows = [...(poolsBody.data ?? [])].sort((a, b) => {
     const av = Number(a.attributes?.volume_usd?.h24) || Number(a.attributes?.reserve_in_usd) || 0;
@@ -209,20 +265,54 @@ async function fetchGeckoPool(mint: string) {
   return { address, tokenIsBase: Boolean(asBase) || !asQuote };
 }
 
+async function fetchDexscreenerPool(mint: string): Promise<PoolRef | null> {
+  const body = await jsonGet<{
+    pairs?: {
+      chainId?: string;
+      pairAddress?: string;
+      baseToken?: { address?: string };
+      liquidity?: { usd?: number };
+      volume?: { h24?: number };
+    }[];
+  }>(`https://api.dexscreener.com/latest/dex/tokens/${mint}`, 5_000);
+  const pairs = (body?.pairs ?? [])
+    .filter((pair) => pair.chainId === "solana" && pair.pairAddress)
+    .sort((a, b) => (b.liquidity?.usd ?? b.volume?.h24 ?? 0) - (a.liquidity?.usd ?? a.volume?.h24 ?? 0));
+  const pair = pairs[0];
+  if (!pair?.pairAddress) return null;
+  return { address: pair.pairAddress, tokenIsBase: pair.baseToken?.address === mint };
+}
+
+async function resolvePool(mint: string): Promise<PoolRef | null> {
+  const cached = poolCache.get(mint);
+  if (cached && Date.now() - cached.at < POOL_TTL_MS) return cached.pool;
+  const pending = poolInflight.get(mint);
+  if (pending) return pending;
+  const job = (async () => {
+    try {
+      const gecko = await fetchGeckoPool(mint);
+      const pool = gecko ?? (await fetchDexscreenerPool(mint));
+      poolCache.set(mint, { at: Date.now(), pool });
+      return pool;
+    } finally {
+      poolInflight.delete(mint);
+    }
+  })();
+  poolInflight.set(mint, job);
+  return job;
+}
+
 async function fetchGeckoPoolOhlcv(
   pool: string,
   spec: { timeframe: string; aggregate: number },
   side: "base" | "quote",
 ) {
-  const ohlcvRes = await fetch(
-    `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pool}/ohlcv/${spec.timeframe}?aggregate=${spec.aggregate}&limit=1000&currency=usd&token=${side}`,
-    { headers: { Accept: "application/json" } },
-  );
-  if (!ohlcvRes.ok) return [] as OhlcvCandle[];
-  const ohlcvBody = (await ohlcvRes.json()) as {
+  const ohlcvBody = await jsonGet<{
     data?: { attributes?: { ohlcv_list?: [number, number, number, number, number, number][] } };
-  };
-  return formatGeckoCandles(ohlcvBody.data?.attributes?.ohlcv_list ?? []);
+  }>(
+    `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pool}/ohlcv/${spec.timeframe}?aggregate=${spec.aggregate}&limit=1000&currency=usd&token=${side}`,
+  );
+  return formatGeckoCandles(ohlcvBody?.data?.attributes?.ohlcv_list ?? []);
 }
 
 async function fetchStonkFunPool(mint: string) {
@@ -291,14 +381,15 @@ export async function fetchPublicOhlcv(mint: string, tf: string, spotUsd?: numbe
   const cacheKey = `${mint}:${tf}`;
   const cached = ohlcvCache.get(cacheKey);
   if (cached && Date.now() - cached.at < OHLCV_TTL_MS && cached.candles.length >= 2) {
-    return cached.candles;
+    return applyLiveClose(cached.candles, spotUsd, spec.step);
   }
 
   const [pool, dex] = await Promise.all([
-    fetchGeckoPool(mint),
+    resolvePool(mint),
     spotUsd && spotUsd > 0 ? Promise.resolve(null) : fetchDexscreenerToken(mint).catch(() => null),
   ]);
   const spot = spotUsd && spotUsd > 0 ? spotUsd : dex?.market?.priceUsd ?? null;
+
   let candles: OhlcvCandle[] = [];
   if (pool) {
     const preferred = pool.tokenIsBase ? "base" : "quote";
@@ -325,8 +416,9 @@ export async function fetchPublicOhlcv(mint: string, tf: string, spotUsd?: numbe
     }
   }
 
+  if (candles.length < 2 && cached?.candles.length) candles = cached.candles;
   if (candles.length >= 2) ohlcvCache.set(cacheKey, { at: Date.now(), candles });
-  return candles;
+  return applyLiveClose(candles, spot, spec.step);
 }
 
 export async function fetchDexscreenerToken(mint: string): Promise<StonkFunToken | null> {
@@ -374,47 +466,98 @@ export async function fetchDexscreenerToken(mint: string): Promise<StonkFunToken
   };
 }
 
-export async function fetchPublicTrades(mint: string, symbol?: string): Promise<IntelTransfer[]> {
-  const pool = await fetchGeckoPool(mint);
-  if (!pool) return [];
-  const tradesRes = await fetch(
-    `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pool.address}/trades?limit=30`,
-    { headers: { Accept: "application/json" } },
-  );
-  if (!tradesRes.ok) return [];
-  const tradesBody = (await tradesRes.json()) as {
-    data?: {
-      id?: string;
-      attributes?: {
-        block_timestamp?: string;
-        tx_hash?: string;
-        kind?: string;
-        from_token_address?: string;
-        to_token_address?: string;
-        from_token_amount?: string;
-        to_token_amount?: string;
-        volume_in_usd?: string;
-      };
-    }[];
+type GeckoTradeRow = {
+  id?: string;
+  attributes?: {
+    block_timestamp?: string;
+    tx_hash?: string;
+    tx_from_address?: string;
+    kind?: string;
+    from_token_address?: string;
+    to_token_address?: string;
+    from_token_amount?: string;
+    to_token_amount?: string;
+    volume_in_usd?: string;
   };
-  return (tradesBody.data ?? []).map((row) => {
+};
+
+function tradeSide(mint: string, tokenIsBase: boolean, attrs: NonNullable<GeckoTradeRow["attributes"]>): "buy" | "sell" {
+  const kind = (attrs.kind || "").toLowerCase();
+  if (kind === "buy" || kind === "sell") {
+    if (tokenIsBase) return kind;
+    return kind === "buy" ? "sell" : "buy";
+  }
+  return attrs.to_token_address === mint ? "buy" : "sell";
+}
+
+function rowsFromGeckoTrades(
+  mint: string,
+  symbol: string | undefined,
+  tokenIsBase: boolean,
+  rows: GeckoTradeRow[],
+): IntelTransfer[] {
+  const ticker = (symbol || "TOKEN").replace(/^\$/, "");
+  const out: IntelTransfer[] = [];
+  for (const row of rows) {
     const attrs = row.attributes ?? {};
-    const sellingMint = attrs.from_token_address === mint;
-    const side = sellingMint ? "sell" : "buy";
-    const amount = sellingMint
-      ? Number(attrs.from_token_amount)
-      : Number(attrs.to_token_amount);
-    return {
-      id: row.id || attrs.tx_hash || `${mint}:${attrs.block_timestamp}`,
+    if (attrs.from_token_address !== mint && attrs.to_token_address !== mint) continue;
+    const side = tradeSide(mint, tokenIsBase, attrs);
+    const amount = side === "buy" ? Number(attrs.to_token_amount) : Number(attrs.from_token_amount);
+    const signature = attrs.tx_hash || "";
+    out.push({
+      id: row.id || signature || `${mint}:${attrs.block_timestamp}`,
       at: attrs.block_timestamp || new Date().toISOString(),
-      signature: attrs.tx_hash || "",
-      from: "",
+      signature,
+      from: attrs.tx_from_address || "",
       to: "",
-      token: (symbol || "TOKEN").replace(/^\$/, ""),
+      token: ticker,
       mint,
       amount: Number.isFinite(amount) ? amount : 0,
       usd: Number(attrs.volume_in_usd) || 0,
       side,
-    } satisfies IntelTransfer;
-  });
+    });
+  }
+  return out;
+}
+
+export function mergeTrades(primary: IntelTransfer[], extra: IntelTransfer[] = []) {
+  const rows = new Map<string, IntelTransfer>();
+  const keyOf = (row: IntelTransfer) => {
+    if (row.signature && (row.side === "buy" || row.side === "sell")) return `${row.side}:${row.signature}`;
+    if (row.signature) return `${row.signature}:${row.id}`;
+    return row.id;
+  };
+  for (const row of extra) rows.set(keyOf(row), row);
+  for (const row of primary) rows.set(keyOf(row), row);
+  return [...rows.values()].sort((a, b) => Date.parse(b.at) - Date.parse(a.at) || b.usd - a.usd);
+}
+
+export async function fetchPublicTrades(mint: string, symbol?: string): Promise<IntelTransfer[]> {
+  const cached = tradeCache.get(mint);
+  if (cached && Date.now() - cached.at < TRADE_TTL_MS) return cached.rows;
+  const pool = await resolvePool(mint);
+  const urls = [
+    pool
+      ? `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pool.address}/trades?trade_volume_in_usd_greater_than=0`
+      : null,
+    `https://api.geckoterminal.com/api/v2/networks/solana/tokens/${mint}/trades?trade_volume_in_usd_greater_than=0`,
+  ].filter(Boolean) as string[];
+  const tokenIsBase = pool?.tokenIsBase ?? true;
+  let raw: GeckoTradeRow[] = [];
+  for (const url of urls) {
+    const body = await jsonGet<{ data?: GeckoTradeRow[] }>(url, 8_000);
+    raw = body?.data ?? [];
+    if (raw.length) break;
+  }
+  const rows = rowsFromGeckoTrades(mint, symbol, tokenIsBase, raw);
+  if (rows.length) {
+    tradeCache.set(mint, { at: Date.now(), rows });
+    return rows;
+  }
+  if (cached?.rows.length) {
+    tradeCache.set(mint, { at: Date.now(), rows: cached.rows });
+    return cached.rows;
+  }
+  tradeCache.set(mint, { at: Date.now(), rows: [] });
+  return [];
 }

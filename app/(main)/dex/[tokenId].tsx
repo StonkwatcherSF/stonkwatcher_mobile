@@ -17,7 +17,7 @@ import * as Sharing from "expo-sharing";
 import HistoryIcon from "../../../assets/icons/transaction-history.svg";
 import WalletHistorySheet from "../../../components/WalletHistorySheet";
 import { useTokenMarket } from "../../../hooks/useTokenMarket";
-import { useOhlcv, type ChartPeriod } from "../../../hooks/useOhlcv";
+import { PERIOD_STEP, useOhlcv, type ChartPeriod } from "../../../hooks/useOhlcv";
 import { useTokenInfo, useTokenTrades } from "../../../hooks/useTokenInfo";
 import { usePortfolio, positionPnl } from "../../../components/PortfolioContext";
 import {
@@ -28,7 +28,6 @@ import {
   formatPct,
   formatPrice,
   formatTokenAmount,
-  formatTxTime,
   formatUsdMoney,
   prettySymbol,
   signedUsd,
@@ -135,7 +134,6 @@ export default function DexTokenScreen() {
     amount: number;
   } | null>(null);
   const { data: detail } = useTokenMarket(mint);
-  const { data: candles, loading: chartLoading } = useOhlcv(mint, period as ChartPeriod);
   const tokenMeta = detail?.token;
   const market = detail?.market;
   const name = tokenMeta?.name || tokenMeta?.symbol || truncateAddress(mint);
@@ -145,7 +143,13 @@ export default function DexTokenScreen() {
   const priceUsd = market?.priceUsd ?? tokenMeta?.market?.priceUsd ?? null;
   const marketCapUsd = market?.marketCapUsd ?? tokenMeta?.market?.marketCapUsd ?? null;
   const change = tokenMeta?.market?.priceChange24h ?? 0;
-  const { data: trades, loading: tradesLoading } = useTokenTrades(mint, tokenMeta?.name, symbol);
+  const { data: candles, loading: chartLoading } = useOhlcv(mint, period as ChartPeriod, priceUsd);
+  const { data: trades, loading: tradesLoading } = useTokenTrades(
+    mint,
+    tokenMeta?.name,
+    symbol,
+    infoTab === "Transactions",
+  );
   const { data: tokenInfo, loading: infoLoading } = useTokenInfo(mint, infoTab === "Token Info");
   const { cash, positionFor } = usePortfolio();
   const holding = positionFor(mint);
@@ -249,6 +253,7 @@ export default function DexTokenScreen() {
               candles={candles ?? []}
               marketCapUsd={marketCapUsd}
               priceUsd={priceUsd}
+              step={PERIOD_STEP[period as ChartPeriod]}
             />
             {chartLoading && !(candles?.length) ? (
               <View style={styles.chartOverlay}><ActivityIndicator color={COLORS.stonkGreen} /></View>
@@ -289,13 +294,13 @@ export default function DexTokenScreen() {
             tradesLoading && !(trades?.length) ? (
               <ActivityIndicator color={COLORS.stonkGreen} style={{ marginVertical: 18 }} />
             ) : trades?.length ? (
-            trades.slice(0, 14).map((tx: IntelTransfer) => (
+            trades.slice(0, 48).map((tx: IntelTransfer) => (
               <View style={styles.txRow} key={tx.id || tx.signature}>
                 <View>
                   <Text style={styles.txName}>
                     {tx.side === "sell" ? "Sell" : tx.side === "liquidity" ? "Liquidity" : "Buy"}
                   </Text>
-                  <Text style={styles.txTime}>{formatTxTime(tx.at)}</Text>
+                  <Text style={styles.txTime}>{formatAge(tx.at)}</Text>
                 </View>
 
                 <View style={{ alignItems: "flex-end" }}>
