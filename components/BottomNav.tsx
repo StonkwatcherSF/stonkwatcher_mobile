@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Pressable, StyleSheet, useWindowDimensions, Image } from "react-native";
+import { View, Pressable, StyleSheet, useWindowDimensions } from "react-native";
 import { useRouter, usePathname } from "expo-router";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -10,7 +10,7 @@ import { useNavAnimation } from "./NavAnimationContext";
 import TokensIcon from "../assets/icons/tokens.svg";
 import TracerIcon from "../assets/icons/tracer.svg";
 import BlacklistIcon from "../assets/icons/blacklist.svg";
-const PLACEHOLDER = require("../assets/images/placeholder.png");
+import UserAvatar from "./UserAvatar";
 const NAV_HEIGHT = 62;
 const NAV_PADDING = 8;
 const INDICATOR_HEIGHT = 46;
@@ -61,7 +61,7 @@ export default function BottomNav() {
         <View style={styles.items}>
           {ITEMS.map(({ label, Icon }, index) => (
             <Pressable key={label} style={[styles.item, { width: itemWidth }]} onPress={() => navigate(index)} accessibilityRole="button" accessibilityLabel={label}>
-              {Icon ? <Icon width={22} height={22} color={selectedIndex === index ? COLORS.stonkLightG : COLORS.grey} /> : <Image source={PLACEHOLDER} style={styles.walletAvatar} resizeMode="cover" />}
+              {Icon ? <Icon width={22} height={22} color={selectedIndex === index ? COLORS.stonkLightG : COLORS.grey} /> : <UserAvatar style={styles.walletAvatar} />}
             </Pressable>
           ))}
         </View>

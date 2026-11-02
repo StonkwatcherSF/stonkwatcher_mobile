@@ -1,24 +1,26 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet, Image, Share, Alert } from "react-native";
+import { View, Text, Pressable, StyleSheet, Share, Alert } from "react-native";
 import { BadgeCheck, ChevronLeft } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { COLORS, FONTS } from "../constants/theme";
 import ShareIcon from "../assets/icons/share.svg";
 import HistoryIcon from "../assets/icons/transaction-history.svg";
 import SettingsIcon from "../assets/icons/settings.svg";
-const PLACEHOLDER = require("../assets/images/placeholder.png");
+import UserAvatar from "./UserAvatar";
+import { useSettings } from "./SettingsContext";
 type Props = { showBack?: boolean; onOpenMore?: () => void; onHistory?: () => void; onSend?: () => void };
 export default function WalletProfile({ showBack = false, onOpenMore, onHistory, onSend }: Props) {
   const router = useRouter();
+  const { prefs } = useSettings();
   const handleShareProfile = async () => {
     try {
       await Share.share({
         message:
-          "Check out Unipcs on Stonk Watcher!\n\n" +
-          "Profile: @unipcs\n" +
+          `Check out ${prefs.name} on Stonk Watcher!\n\n` +
+          `Profile: ${prefs.username}\n` +
           "Track tokens, positions, and market activity on Stonk Watcher.",
       });
-    } catch (error) {
+    } catch {
       Alert.alert("Share Failed", "Unable to share this profile.");
     }
   };
@@ -42,11 +44,11 @@ export default function WalletProfile({ showBack = false, onOpenMore, onHistory,
         </View>
       </View>
       <View style={styles.profile}>
-        <View style={styles.avatar}><Image source={PLACEHOLDER} style={styles.avatarImage} resizeMode="cover" /></View>
+        <View style={styles.avatar}><UserAvatar style={styles.avatarImage} /></View>
         <View style={styles.info}>
-          <View style={styles.nameRow}><Text style={styles.name}>Unipcs</Text><BadgeCheck size={22} color={COLORS.stonkGreen} /></View>
-          <Text style={styles.handle}>@unipcs</Text>
-          <Text style={styles.bio}>{'"If the Lord will, we shall live, and do this, or that." - James 4:15'}</Text>
+          <View style={styles.nameRow}><Text style={styles.name}>{prefs.name}</Text><BadgeCheck size={22} color={COLORS.stonkGreen} /></View>
+          <Text style={styles.handle}>{prefs.username}</Text>
+          <Text style={styles.bio}>{prefs.bio}</Text>
         </View>
       </View>
     </View>

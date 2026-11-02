@@ -7,7 +7,6 @@ import {
   Pressable,
   ScrollView,
   StatusBar,
-  Image,
   ActivityIndicator,
   TextInput,
 } from "react-native";
@@ -31,8 +30,7 @@ import { dexHref } from "../../lib/nav";
 import { useQuoteCatalog } from "../../hooks/useQuotes";
 import { useTokens } from "../../hooks/useTokens";
 import type { StonkFunToken } from "../../lib/types";
-
-const PLACEHOLDER = require("../../assets/images/placeholder.png");
+import UserAvatar from "../../components/UserAvatar";
 
 type Tab = "Trending" | "New";
 
@@ -90,11 +88,7 @@ export default function TokensScreen() {
         <View style={styles.header}>
           <View style={styles.balanceGroup}>
             <View style={styles.avatar}>
-              <Image
-                source={PLACEHOLDER}
-                style={styles.avatarImage}
-                resizeMode="cover"
-              />
+              <UserAvatar style={styles.avatarImage} />
             </View>
 
             <Text style={styles.balance}>
