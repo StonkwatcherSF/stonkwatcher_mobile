@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { View, Text, ScrollView, Pressable, StyleSheet, useWindowDimensions, Alert, Image, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, Pressable, StyleSheet, useWindowDimensions, Alert, ActivityIndicator } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Clipboard from "expo-clipboard";
@@ -10,6 +10,7 @@ import { COLORS, FONTS, GRADIENTS } from "../../../constants/theme";
 import TradeSheet from "../../../components/TradeSheet";
 import TradeConfirmation from "../../../components/TradeConfirmation";
 import TokenImage from "../../../components/TokenImage";
+import UserAvatar from "../../../components/UserAvatar";
 import PriceChart from "../../../components/PriceChart";
 import { shareExternally } from "../../../utils/share";
 import ViewShot from "react-native-view-shot";
@@ -35,7 +36,6 @@ import {
 import { isSolanaAddress, readRouteParam, truncateAddress } from "../../../lib/solana";
 import type { IntelTransfer, TokenInfoPayload } from "../../../lib/types";
 
-const PLACEHOLDER = require("../../../assets/images/placeholder.png");
 
 const PERIODS = ["1s", "1m", "5m", "15m", "1h", "All"] as const;
 type Period = (typeof PERIODS)[number];
@@ -223,7 +223,7 @@ export default function DexTokenScreen() {
             <Pressable accessibilityLabel="Back to tokens" onPress={() => router.back()} style={styles.round}><ArrowLeft color={COLORS.white} size={23} /></Pressable>
             <View style={styles.headerRight}>
               <View style={styles.balanceGroup}>
-                <Image source={PLACEHOLDER} style={styles.robotImage} resizeMode="cover" />
+                <UserAvatar style={styles.robotImage} />
                 <Text style={styles.balanceAmount} numberOfLines={1}>{formatUsdMoney(cash)}</Text>
               </View>
               <Pressable

@@ -28,13 +28,15 @@ export function useDebouncedValue(value: string, delay = DEBOUNCE_MS) {
   return debounced;
 }
 
+export async function searchTokens(query: string) {
+  const page = await fetchTokens({ q: query.trim(), raw: true, fast: true, pageSize: 20, sort: "volume" });
+  return (page.tokens ?? []).filter((token) => tokenMint(token));
+}
+
 export function useSearchTokens(query: string) {
   const q = query.trim();
   return useAsync<StonkFunToken[]>(
-    async () => {
-      const page = await fetchTokens({ q, raw: true, fast: true, pageSize: 20, sort: "volume" });
-      return (page.tokens ?? []).filter((token) => tokenMint(token));
-    },
+    () => searchTokens(q),
     [q],
     q.length > 0,
   );

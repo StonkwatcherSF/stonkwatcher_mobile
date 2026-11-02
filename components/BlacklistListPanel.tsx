@@ -3,7 +3,6 @@ import React, { useEffect, useRef } from "react";
 import {
   Alert,
   Animated,
-  Image,
   PanResponder,
   Platform,
   Pressable,
@@ -19,10 +18,11 @@ import {
   type BlacklistEntry,
 } from "./BlacklistContext";
 
+import TokenImage from "./TokenImage";
+
 const LIME = "#C6E900";
 const ACTION_WIDTH = 92;
 
-const PLACEHOLDER = require("../assets/images/placeholder.png");
 
 type Props = {
   onBack: () => void;
@@ -144,10 +144,10 @@ function SwipeableEntry({
       >
         {/* UPDATED PROFILE PICTURE */}
         <View style={styles.coin}>
-          <Image
-            source={PLACEHOLDER}
+          <TokenImage
+            uri={entry.imageUrl}
+            mint={entry.kind === "Token" ? entry.address : undefined}
             style={styles.coinImage}
-            resizeMode="cover"
           />
         </View>
 
@@ -156,9 +156,7 @@ function SwipeableEntry({
             style={styles.kind}
             numberOfLines={1}
           >
-            {entry.kind === "Token"
-              ? "Blacklisted Token"
-              : "Blacklisted Wallet"}
+            {entry.name || (entry.kind === "Token" ? "Blacklisted Token" : "Blacklisted Wallet")}
           </Text>
 
           <Text

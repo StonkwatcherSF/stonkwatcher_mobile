@@ -201,6 +201,12 @@ export default function RewardsCalendar() {
     ),
   ];
 
+  // Complete each week so every row has the same seven equal columns.
+  while (cells.length % 7 !== 0) cells.push(null);
+  const weeks = Array.from({ length: cells.length / 7 }, (_, index) =>
+    cells.slice(index * 7, index * 7 + 7)
+  );
+
   function changeMonth(direction: number) {
     setMonth(
       new Date(
@@ -334,44 +340,48 @@ export default function RewardsCalendar() {
             </View>
 
             <View style={styles.calendarGrid}>
-              {cells.map((day, index) => {
-                const pnl =
-                  day !== null ? pnlByDay[day] : undefined;
+              {weeks.map((week, weekIndex) => (
+                <View key={weekIndex} style={styles.calendarWeek}>
+                  {week.map((day, index) => {
+                    const pnl =
+                      day !== null ? pnlByDay[day] : undefined;
 
-                return (
-                  <View
-                    key={index}
-                    style={styles.daySlot}
-                  >
-                    {day !== null && (
+                    return (
                       <View
-                        style={[
-                          styles.dayCell,
-                          pnl
-                            ? pnl > 0
-                              ? styles.profitableDay
-                              : styles.lossDay
-                            : styles.emptyDay,
-                        ]}
+                        key={index}
+                        style={styles.daySlot}
                       >
-                        <Text style={styles.dayNumber}>
-                          {day}
-                        </Text>
-
-                        {pnl ? (
-                          <Text
-                            style={styles.dayProfit}
-                            numberOfLines={1}
-                            adjustsFontSizeToFit
+                        {day !== null && (
+                          <View
+                            style={[
+                              styles.dayCell,
+                              pnl
+                                ? pnl > 0
+                                  ? styles.profitableDay
+                                  : styles.lossDay
+                                : styles.emptyDay,
+                            ]}
                           >
-                            {formatSignedUsd(pnl)}
-                          </Text>
-                        ) : null}
+                            <Text style={styles.dayNumber}>
+                              {day}
+                            </Text>
+
+                            {pnl ? (
+                              <Text
+                                style={styles.dayProfit}
+                                numberOfLines={1}
+                                adjustsFontSizeToFit
+                              >
+                                {formatSignedUsd(pnl)}
+                              </Text>
+                            ) : null}
+                          </View>
+                        )}
                       </View>
-                    )}
-                  </View>
-                );
-              })}
+                    );
+                  })}
+                </View>
+              ))}
             </View>
           </>
         ) : (
@@ -519,7 +529,7 @@ const styles = StyleSheet.create({
   },
 
   weekday: {
-    width: `${100 / 7}%`,
+    flex: 1,
     textAlign: "center",
     fontFamily: FONTS.regular,
     color: COLORS.white,
@@ -527,14 +537,16 @@ const styles = StyleSheet.create({
   },
 
   calendarGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginHorizontal: -2,
     marginBottom: 24,
   },
 
+  calendarWeek: {
+    flexDirection: "row",
+  },
+
   daySlot: {
-    width: `${100 / 7}%`,
+    flex: 1,
+    minWidth: 0,
     padding: 2,
   },
 

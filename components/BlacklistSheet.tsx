@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Animated, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { ChevronRight } from "lucide-react-native";
 import BlacklistIcon from "../assets/icons/carbon_disable-step.svg";
 import { type BlacklistKind, useBlacklist } from "./BlacklistContext";
 import BlacklistListPanel from "./BlacklistListPanel";
+import TokenImage from "./TokenImage";
+import { useBlacklistLookup } from "../hooks/useBlacklistLookup";
 
 const LIME = "#C6E900";
 const SLIDER_HEIGHT = 49;
@@ -57,14 +59,15 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
     }
   }, [visible, dragY, slideX]);
 
-  const canSubmit = address.trim().length >= 20 && reasons.length > 0;
+  const { match, checking, message } = useBlacklistLookup(kind, address, visible);
+  const canSubmit = visible && Boolean(match) && !checking && reasons.length > 0;
 
   canSubmitRef.current = canSubmit;
 
   const resetSlider = () => Animated.spring(slideX, { toValue: 0, speed: 24, bounciness: 0, useNativeDriver: false }).start();
   const sliderPan = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 3,
+    onStartShouldSetPanResponder: () => canSubmitRef.current,
+    onMoveShouldSetPanResponder: (_, g) => canSubmitRef.current && Math.abs(g.dx) > 3,
     onPanResponderMove: (_, g) => {
       if (canSubmitRef.current) slideX.setValue(Math.max(0, Math.min(sliderMaxRef.current, g.dx)));
     },
@@ -82,10 +85,10 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
 
   const submit = () => {
     if (!canSubmit) {
-      Alert.alert("Incomplete entry", "Enter an address (at least 20 characters) and select a reason.");
+      Alert.alert("Incomplete entry", "Verify a real wallet or token address and select a reason.");
       return;
     }
-    const success = addEntry({ kind, address: address.trim(), reasons });
+    const success = addEntry({ kind, address: address.trim(), reasons, name: match?.name, imageUrl: match?.imageUrl });
     if (!success) {
       Alert.alert("Already blacklisted", "This address is already on your private demo blacklist.");
       return;
@@ -114,17 +117,20 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
             <ScrollView style={styles.formScroll} contentContainerStyle={styles.formContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
               <View style={styles.segment}>
                 {(["Wallet", "Token"] as const).map(option => (
-                  <Pressable key={option} onPress={() => { setKind(option); setAddress(""); }} style={[styles.segmentItem, kind === option && styles.segmentActive]}>
+                  <Pressable key={option} onPress={() => { setKind(option); setAddress(""); slideX.setValue(0); }} style={[styles.segmentItem, kind === option && styles.segmentActive]}>
                     <Text style={[styles.segmentText, kind === option && styles.segmentTextActive]}>{option}</Text>
                   </Pressable>
                 ))}
               </View>
-              <TextInput style={styles.input} value={address} onChangeText={setAddress} autoCapitalize="none" autoCorrect={false} placeholder={`Paste a Solana ${kind.toLowerCase()} address`} placeholderTextColor="#777" accessibilityLabel={`${kind} address`} />
-              {kind === "Token" && address.trim().length >= 20 && (
+              <TextInput style={styles.input} value={address} onChangeText={(value) => { setAddress(value); slideX.setValue(0); }} autoCapitalize="none" autoCorrect={false} placeholder={`Paste a Solana ${kind.toLowerCase()} address`} placeholderTextColor="#777" accessibilityLabel={`${kind} address`} />
+              {checking && (
+                <View style={styles.lookupStatus}><ActivityIndicator size="small" color={LIME} /><Text style={styles.previewSub}>Verifying {kind.toLowerCase()}…</Text></View>
+              )}
+              {message ? <Text style={styles.lookupError}>{message}</Text> : null}
+              {match && (
                 <View style={styles.tokenPreview}>
-                  <View style={styles.coin}><Text style={{ fontSize: 25 }}>🪙</Text></View>
-                  <View style={{ flex: 1 }}><Text style={styles.previewName}>Token address</Text><Text style={styles.previewSub} numberOfLines={1}>{address.trim()}</Text></View>
-                  <Text style={styles.demo}>DEMO</Text>
+                  <View style={styles.coin}><TokenImage uri={match.imageUrl} mint={kind === "Token" ? address.trim() : undefined} style={styles.previewImage} /></View>
+                  <View style={{ flex: 1 }}><Text style={styles.previewName} numberOfLines={1}>{match.name}</Text><Text style={styles.previewSub} numberOfLines={1}>{address.trim()}</Text></View>
                 </View>
               )}
               <Text style={styles.reasonLabel}>Reason</Text>
@@ -160,10 +166,11 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
                     />
                   </Animated.View>
                   <Text pointerEvents="none" style={[styles.slideLabel, !canSubmit && styles.slideLabelDisabled]}>
-                    {canSubmit ? "Slide to block" : "Add an address"}
+                    {canSubmit ? "Slide to block" : checking ? "Verifying address…" : match ? "Select a reason" : "Verify an address"}
                   </Text>
                   <Animated.View
                     {...sliderPan.panHandlers}
+                    pointerEvents={canSubmit ? "auto" : "none"}
                     accessibilityRole="adjustable"
                     accessibilityLabel="Slide right to add to blacklist"
                     accessibilityState={{ disabled: !canSubmit }}
@@ -207,6 +214,9 @@ const styles = StyleSheet.create({
   input: { borderColor: "#4B4B4B", borderWidth: 1, backgroundColor: "#1D1E19", height: 51, paddingHorizontal: 15, borderRadius: 6, color: "#FFFFFF", fontSize: 14 },
   tokenPreview: { marginTop: 7, flexDirection: "row", alignItems: "center", gap: 10, padding: 10, backgroundColor: "#230C09", borderColor: "#F04D38", borderWidth: 1, borderRadius: 6 },
   coin: { width: 45, height: 45, borderRadius: 24, backgroundColor: "#183D56", alignItems: "center", justifyContent: "center" },
+  previewImage: { width: 45, height: 45, borderRadius: 24 },
+  lookupStatus: { flexDirection: "row", gap: 8, alignItems: "center", marginTop: 12 },
+  lookupError: { color: "#FF8076", fontSize: 12, marginTop: 10 },
   previewName: { color: "#FFFFFF", fontWeight: "700" }, previewSub: { color: "#C4C4C4", fontSize: 10, marginTop: 4 }, demo: { color: "#B5E6E2", fontSize: 10 },
   reasonLabel: { color: "#FFFFFF", marginTop: 24, marginBottom: 13, fontSize: 14 },
   reasonRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },

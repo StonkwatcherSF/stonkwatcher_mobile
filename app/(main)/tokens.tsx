@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { BadgeCheck } from "lucide-react-native";
+import { BadgeCheck, ChevronDown, ChevronUp } from "lucide-react-native";
 import {
   COLORS,
   FONTS,
@@ -138,6 +138,9 @@ export default function TokensScreen() {
         <Pressable
           style={styles.quoteSelector}
           onPress={() => setShowQuotes(!showQuotes)}
+          accessibilityRole="button"
+          accessibilityLabel={quote.symbol === "All Quotes" ? "Select quote" : `Quote: ${quote.symbol}`}
+          accessibilityState={{ expanded: showQuotes }}
         >
           <Text style={styles.quoteText}>
             {quote.symbol === "All Quotes"
@@ -145,9 +148,11 @@ export default function TokensScreen() {
               : quote.symbol}
           </Text>
 
-          <Text style={styles.quoteArrow}>
-            {showQuotes ? "⌃" : "⌄"}
-          </Text>
+          {showQuotes ? (
+            <ChevronUp size={18} color="#DADADA" />
+          ) : (
+            <ChevronDown size={18} color="#DADADA" />
+          )}
         </Pressable>
 
         {showQuotes && (
@@ -383,11 +388,6 @@ const styles = StyleSheet.create({
   quoteText: {
     color: "#DADADA",
     fontSize: 13,
-  },
-
-  quoteArrow: {
-    color: "#DADADA",
-    fontSize: 18,
   },
 
   quoteMenu: {

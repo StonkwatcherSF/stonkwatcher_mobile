@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from "react";
 export type BlacklistKind = "Wallet" | "Token";
-export type BlacklistEntry = { id: string; address: string; kind: BlacklistKind; reasons: string[]; addedAt: number };
+export type BlacklistEntry = { id: string; address: string; kind: BlacklistKind; reasons: string[]; name?: string; imageUrl?: string; addedAt: number };
 type Store = { entries: BlacklistEntry[]; addEntry: (entry: Omit<BlacklistEntry, "id" | "addedAt">) => boolean; removeEntry: (id: string) => void };
 const Context = createContext<Store | null>(null);
 export function BlacklistProvider({ children }: { children: React.ReactNode }) {

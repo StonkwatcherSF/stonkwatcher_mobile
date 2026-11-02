@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { View, Pressable, StyleSheet, useWindowDimensions } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { View, Pressable, StyleSheet, useWindowDimensions, PanResponder } from "react-native";
 import { useRouter, usePathname } from "expo-router";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -42,17 +42,44 @@ export default function BottomNav() {
   }, [activeIndex, itemWidth]);
   const wholeNavStyle = useAnimatedStyle(() => ({ transform: [{ scale: scrollScale.value * tapScale.value }] }));
   const indicatorStyle = useAnimatedStyle(() => ({ transform: [{ translateX: indicatorX.value }], opacity: withTiming(selectedIndex === 4 ? 0 : 1, { duration: 170 }) }));
-  function navigate(index: number) {
+  const navigate = useCallback((index: number) => {
     compact.value = 0;
     tapScale.value = withSequence(withTiming(0.97, { duration: 75 }), withSpring(1.02, { damping: 16, stiffness: 240, mass: 0.7 }), withTiming(1, { duration: 120 }));
     setSelectedIndex(index);
     if (index < 4) indicatorX.value = withTiming(index * itemWidth, { duration: 230 });
     const target = index === 4 ? "/search" : ROUTES[index];
     if (target && pathname !== target) router.replace(target as any);
-  }
+  }, [compact, tapScale, indicatorX, itemWidth, pathname, router]);
+  const panResponder = useMemo(() => {
+    // Convert screen coordinates into the scaled navigation bar's local space.
+    const positionFor = (pageX: number) => {
+      const scale = scrollScale.value * tapScale.value;
+      const localX = (pageX - width / 2) / scale + totalWidth / 2 - NAV_PADDING;
+      return Math.max(0, Math.min((ITEMS.length - 1) * itemWidth, localX - itemWidth / 2));
+    };
+    const preview = (pageX: number) => {
+      const position = positionFor(pageX);
+      indicatorX.set(position);
+      setSelectedIndex(Math.round(position / itemWidth));
+    };
+    return PanResponder.create({
+      onMoveShouldSetPanResponderCapture: (_, gesture) =>
+        gesture.numberActiveTouches === 1 &&
+        Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.3,
+      onPanResponderGrant: (event) => preview(event.nativeEvent.pageX),
+      onPanResponderMove: (_, gesture) => preview(gesture.moveX),
+      onPanResponderRelease: (event) => {
+        navigate(Math.round(positionFor(event.nativeEvent.pageX) / itemWidth));
+      },
+      onPanResponderTerminate: () => {
+        setSelectedIndex(activeIndex);
+        indicatorX.set(withSpring(Math.min(activeIndex, 3) * itemWidth, { damping: 20 }));
+      },
+    });
+  }, [activeIndex, indicatorX, itemWidth, navigate, scrollScale, tapScale, totalWidth, width]);
   return (
     <Animated.View style={[styles.wrapper, { width: totalWidth }, wholeNavStyle]}>
-      <View style={[styles.mainNav, { width: mainWidth }]}>
+      <View {...panResponder.panHandlers} style={[styles.mainNav, { width: mainWidth }]}>
         <BlurView intensity={65} tint="dark" pointerEvents="none" style={StyleSheet.absoluteFill} />
         <LinearGradient pointerEvents="none" colors={["rgba(255,255,255,0.17)", "rgba(255,255,255,0.06)", "rgba(187,220,18,0.08)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
         <Animated.View pointerEvents="none" style={[styles.indicator, { width: itemWidth }, indicatorStyle]}>
@@ -60,7 +87,7 @@ export default function BottomNav() {
         </Animated.View>
         <View style={styles.items}>
           {ITEMS.map(({ label, Icon }, index) => (
-            <Pressable key={label} style={[styles.item, { width: itemWidth }]} onPress={() => navigate(index)} accessibilityRole="button" accessibilityLabel={label}>
+            <Pressable key={label} style={[styles.item, { width: itemWidth }]} onPress={() => navigate(index)} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: selectedIndex === index }}>
               {Icon ? <Icon width={22} height={22} color={selectedIndex === index ? COLORS.stonkLightG : COLORS.grey} /> : <UserAvatar style={styles.walletAvatar} />}
             </Pressable>
           ))}
