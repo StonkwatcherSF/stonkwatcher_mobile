@@ -1,15 +1,21 @@
+import { AppBackgroundProvider } from "../components/AppBackground";
 import { SkeletonPage } from "../components/Skeleton";
 
 import React from "react";
-import { Stack } from "expo-router";
+import { DarkTheme, Stack, ThemeProvider } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { View } from "react-native";
 
-import { COLORS } from "../constants/theme";
 import { AuthProvider } from "../components/AuthContext";
 
+const APP_THEME = { ...DarkTheme, colors: { ...DarkTheme.colors, background: "transparent" } };
+
 export default function RootLayout() {
+  return <ThemeProvider value={APP_THEME}><AppBackgroundProvider><RootContent /></AppBackgroundProvider></ThemeProvider>;
+}
+
+function RootContent() {
   const [fontsLoaded, fontError] = useFonts({
     GoogleSansFlex: require("../assets/fonts/GoogleSansFlex.ttf"),
   });
@@ -23,7 +29,7 @@ export default function RootLayout() {
       <View
         style={{
           flex: 1,
-          backgroundColor: COLORS.black,
+          backgroundColor: "transparent",
           justifyContent: "center",
           alignItems: "center",
         }}
@@ -42,7 +48,7 @@ export default function RootLayout() {
           headerShown: false,
           animation: "none",
           contentStyle: {
-            backgroundColor: COLORS.black,
+            backgroundColor: "transparent",
           },
         }}
       >

@@ -1,3 +1,4 @@
+import { useBackgroundScroll } from "../../../../components/AppBackground";
 import { Skeleton, SkeletonGroup } from "../../../../components/Skeleton";
 
 import React, { useRef, useState } from "react";
@@ -101,6 +102,7 @@ const EMPTY_SNAPSHOT = {
 
 export default function SnapshotScreen() {
     const router = useRouter();
+  const backgroundScroll = useBackgroundScroll();
     const { prefs } = useSettings();
     const { mint: rawMint } = useLocalSearchParams<{ mint?: string | string[] }>();
     const mint = readRouteParam(rawMint);
@@ -201,7 +203,7 @@ export default function SnapshotScreen() {
                 />
             </View>
 
-            <ScrollView
+            <ScrollView {...backgroundScroll} scrollEventThrottle={32}
                 contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
             >
@@ -505,7 +507,7 @@ export default function SnapshotScreen() {
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#090A08",
+        backgroundColor: "transparent",
     },
     back: {
         position: "absolute",

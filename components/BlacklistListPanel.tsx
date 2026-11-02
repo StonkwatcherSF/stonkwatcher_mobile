@@ -1,3 +1,4 @@
+import { useBackgroundScroll } from "./AppBackground";
 
 import React, { useEffect, useRef } from "react";
 import {
@@ -188,6 +189,7 @@ export default function BlacklistListPanel({
   onBack,
   onDragDown,
 }: Props) {
+  const backgroundScroll = useBackgroundScroll();
   const { entries, removeEntry } =
     useBlacklist();
 
@@ -325,7 +327,7 @@ export default function BlacklistListPanel({
       </View>
 
       {/* BLACKLIST ENTRIES */}
-      <ScrollView
+      <ScrollView {...backgroundScroll} scrollEventThrottle={32}
         style={styles.scroll}
         contentContainerStyle={
           styles.content

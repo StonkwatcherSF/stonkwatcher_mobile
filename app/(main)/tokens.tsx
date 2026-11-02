@@ -1,3 +1,4 @@
+import { useBackgroundScroll } from "../../components/AppBackground";
 import TokenCardPressable from "../../components/TokenCardPressable";
 import { SkeletonRows } from "../../components/Skeleton";
 
@@ -11,13 +12,11 @@ import {
   StatusBar,
   TextInput,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BadgeCheck, ChevronDown, ChevronUp } from "lucide-react-native";
 import {
   COLORS,
   FONTS,
-  GRADIENTS,
 } from "../../constants/theme";
 import { useNavScroll } from "../../components/NavAnimationContext";
 import TokenImage from "../../components/TokenImage";
@@ -38,6 +37,7 @@ type Tab = "Trending" | "New";
 export default function TokensScreen() {
   const router = useRouter();
   const navScroll = useNavScroll();
+  const quoteScroll = useBackgroundScroll();
   const { cash } = usePortfolio();
 
   const [activeTab, setActiveTab] =
@@ -73,13 +73,6 @@ export default function TokensScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-
-      <LinearGradient
-        colors={GRADIENTS.tokens}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 1, y: 0.5 }}
-        style={StyleSheet.absoluteFill}
-      />
 
       <SafeAreaView
         style={styles.safeArea}
@@ -167,7 +160,7 @@ export default function TokensScreen() {
               autoCorrect={false}
               style={styles.quoteSearch}
             />
-            <ScrollView style={styles.quoteList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+            <ScrollView {...quoteScroll} scrollEventThrottle={32} style={styles.quoteList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
               {visibleQuotes.map((option) => (
                 <Pressable
                   key={option.mint || option.symbol}
@@ -194,6 +187,7 @@ export default function TokensScreen() {
             navScroll.onScrollBeginDrag
           }
           onScrollEndDrag={navScroll.onScrollEndDrag}
+        onMomentumScrollEnd={navScroll.onMomentumScrollEnd}
           scrollEventThrottle={16}
           style={styles.tokenList}
           contentContainerStyle={{
@@ -287,7 +281,7 @@ export default function TokensScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#101010",
+    backgroundColor: "transparent",
   },
 
   safeArea: {

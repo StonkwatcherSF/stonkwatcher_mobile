@@ -1,3 +1,4 @@
+import { useBackgroundScroll } from "./AppBackground";
 import { SkeletonRows } from "./Skeleton";
 import * as Haptics from "expo-haptics";
 import React, { useRef, useState, useEffect, } from "react";
@@ -75,6 +76,7 @@ export default function TradeSheet({
     onTradeConfirmed,
 }: Props) {
     const router = useRouter();
+  const backgroundScroll = useBackgroundScroll();
     const { cash, buy, sell, positionFor } = usePortfolio();
     const mint = isSolanaAddress(tokenId) ? tokenId : "";
     const { data: detail, loading: detailLoading } = useTokenMarket(mint || undefined);
@@ -384,7 +386,7 @@ export default function TradeSheet({
                     <View style={styles.handle} />
                 </View>
 
-                <ScrollView
+                <ScrollView {...backgroundScroll} scrollEventThrottle={32}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="always"
                     contentContainerStyle={styles.content}

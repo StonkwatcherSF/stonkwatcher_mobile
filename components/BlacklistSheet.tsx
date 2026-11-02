@@ -1,3 +1,4 @@
+import { useBackgroundScroll } from "./AppBackground";
 import { Skeleton, SkeletonGroup, SkeletonRows } from "./Skeleton";
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, Animated, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -17,6 +18,7 @@ const REASONS = ["Scam", "Sniper", "Bundler", "Insider", "Wash/Sybil", "Dump"];
 type Props = { visible: boolean; onClose: () => void; onOpenList?: () => void };
 
 export default function BlacklistSheet({ visible, onClose }: Props) {
+  const backgroundScroll = useBackgroundScroll();
   const [kind, setKind] = useState<BlacklistKind>("Wallet");
   const [address, setAddress] = useState("");
   const [reasons, setReasons] = useState<string[]>([]);
@@ -115,7 +117,7 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
                 <BlacklistIcon width={20} height={20} />
               </Pressable>
             </View>
-            <ScrollView style={styles.formScroll} contentContainerStyle={styles.formContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
+            <ScrollView {...backgroundScroll} scrollEventThrottle={32} style={styles.formScroll} contentContainerStyle={styles.formContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
               <View style={styles.segment}>
                 {(["Wallet", "Token"] as const).map(option => (
                   <Pressable key={option} onPress={() => { setKind(option); setAddress(""); slideX.setValue(0); }} style={[styles.segmentItem, kind === option && styles.segmentActive]}>

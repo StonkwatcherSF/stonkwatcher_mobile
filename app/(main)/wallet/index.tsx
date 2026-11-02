@@ -33,7 +33,6 @@ import {
 import {
   COLORS,
   FONTS,
-  GRADIENTS,
 } from "../../../constants/theme";
 
 import GlassButton from "../../../components/GlassButton";
@@ -413,17 +412,11 @@ export default function WalletScreen() {
     <View style={styles.root}>
       {/* Background */}
 
-      <LinearGradient
-        colors={GRADIENTS.tokens}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-
       <ScrollView
         onScroll={navScroll.onScroll}
         onScrollBeginDrag={navScroll.onScrollBeginDrag}
         onScrollEndDrag={navScroll.onScrollEndDrag}
+        onMomentumScrollEnd={navScroll.onMomentumScrollEnd}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
@@ -692,7 +685,7 @@ const styles = StyleSheet.create({
   withdrawBannerAmount: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
   root: {
     flex: 1,
-    backgroundColor: COLORS.black,
+    backgroundColor: "transparent",
   },
 
   content: {

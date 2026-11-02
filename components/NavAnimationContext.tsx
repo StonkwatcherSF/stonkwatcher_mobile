@@ -1,3 +1,4 @@
+import { useBackgroundScroll } from "./AppBackground";
 
 import React, {
   createContext,
@@ -54,6 +55,7 @@ export function useNavAnimation() {
 
 export function useNavScroll() {
   const { compact } = useNavAnimation();
+  const background = useBackgroundScroll();
 
   const previousY = React.useRef(0);
   const distance = React.useRef(0);
@@ -64,6 +66,7 @@ export function useNavScroll() {
   function onScroll(
     event: NativeSyntheticEvent<NativeScrollEvent>
   ) {
+    background.onScroll(event);
     const y = Math.max(
       0,
       event.nativeEvent.contentOffset.y
@@ -115,13 +118,15 @@ export function useNavScroll() {
     }
   }
 
-  function onScrollBeginDrag() {
+  function onScrollBeginDrag(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    background.onScrollBeginDrag(event);
     isDragging.current = true;
     distance.current = 0;
     lastDirection.current = 0;
   }
 
   function onScrollEndDrag() {
+    background.onScrollEndDrag();
     isDragging.current = false;
     distance.current = 0;
     lastDirection.current = 0;
@@ -131,5 +136,6 @@ export function useNavScroll() {
     onScroll,
     onScrollBeginDrag,
     onScrollEndDrag,
+    onMomentumScrollEnd: background.onMomentumScrollEnd,
   };
 }

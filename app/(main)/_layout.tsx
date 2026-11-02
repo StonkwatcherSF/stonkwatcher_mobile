@@ -66,6 +66,7 @@ function MainContent() {
         screenOptions={{
           headerShown: false,
           animation: "none",
+          contentStyle: { backgroundColor: "transparent" },
         }}
       >
         {/* Tokens */}
@@ -159,6 +160,6 @@ function MainContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#101010",
+    backgroundColor: "transparent",
   },
 });

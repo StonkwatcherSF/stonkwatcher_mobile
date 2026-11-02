@@ -1,13 +1,13 @@
+import { useBackgroundScroll } from "../../../components/AppBackground";
 import { Skeleton, SkeletonRows, SkeletonChart } from "../../../components/Skeleton";
 import React, { useRef, useState } from "react";
 import { View, Text, ScrollView, Pressable, StyleSheet, useWindowDimensions, Alert } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, BadgeCheck, Copy, Send, SlidersHorizontal } from "lucide-react-native";
-import { COLORS, FONTS, GRADIENTS } from "../../../constants/theme";
+import { COLORS, FONTS } from "../../../constants/theme";
 import TradeSheet from "../../../components/TradeSheet";
 import TradeConfirmation from "../../../components/TradeConfirmation";
 import type { WarpTarget } from "../../../components/ConfirmationWarp";
@@ -15,6 +15,9 @@ import DexPositionReveal, { PositionRevealText } from "../../../components/DexPo
 import TokenImage from "../../../components/TokenImage";
 import UserAvatar from "../../../components/UserAvatar";
 import PriceChart from "../../../components/PriceChart";
+import GlassButton from "../../../components/GlassButton";
+import TokensIcon from "../../../assets/icons/tokens.svg";
+import { tracerHref } from "../../../lib/nav";
 import { shareExternally } from "../../../utils/share";
 import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
@@ -121,6 +124,7 @@ function TokenInfoPanel({ info, loading }: { info: TokenInfoPayload | null; load
 
 export default function DexTokenScreen() {
   const router = useRouter();
+  const backgroundScroll = useBackgroundScroll();
   const scrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
   const positionAnchorRef = useRef<React.ElementRef<typeof View>>(null);
   const positionTop = useRef(0);
@@ -245,9 +249,8 @@ export default function DexTokenScreen() {
           gestureEnabled: tradeMode === null,
         }}
       />
-      <LinearGradient colors={GRADIENTS.tokens} style={StyleSheet.absoluteFill} />
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-        <ScrollView ref={scrollRef} onMomentumScrollEnd={() => scrollEnd.current?.()} showsVerticalScrollIndicator={false} nestedScrollEnabled contentContainerStyle={styles.content}>
+        <ScrollView ref={scrollRef} onScroll={backgroundScroll.onScroll} onScrollBeginDrag={backgroundScroll.onScrollBeginDrag} onScrollEndDrag={backgroundScroll.onScrollEndDrag} scrollEventThrottle={32} onMomentumScrollEnd={() => { backgroundScroll.onMomentumScrollEnd(); scrollEnd.current?.(); }} showsVerticalScrollIndicator={false} nestedScrollEnabled contentContainerStyle={styles.content}>
           <View style={styles.topBar}>
             <Pressable accessibilityLabel="Back to tokens" onPress={() => router.back()} style={styles.round}><ArrowLeft color={COLORS.white} size={23} /></Pressable>
             <View style={styles.headerRight}>
@@ -293,10 +296,18 @@ export default function DexTokenScreen() {
               <View style={styles.chartOverlay}><Text style={styles.chartEmpty}>No live candles yet</Text></View>
             ) : null}
           </View>
-          <View style={styles.periodRow}>{PERIODS.map(p => <Pressable key={p} onPress={() => setPeriod(p)} style={[styles.periodButton, period === p && styles.selectedPeriod]}><Text style={[styles.periodText, period === p && styles.selectedText]}>{p}</Text></Pressable>)}<SlidersHorizontal size={17} color={COLORS.grey} style={{ marginLeft: 5 }} /></View>
+          <View style={styles.chartTools}>
+            <GlassButton
+              icon={<TokensIcon width={18} height={18} />}
+              size={36}
+              onPress={() => router.push(tracerHref(mint))}
+              accessibilityLabel={`Open ${token.name} in Tracer`}
+            />
+            <View style={styles.periodRow}>{PERIODS.map(p => <Pressable key={p} onPress={() => setPeriod(p)} style={[styles.periodButton, period === p && styles.selectedPeriod]}><Text style={[styles.periodText, period === p && styles.selectedText]}>{p}</Text></Pressable>)}<SlidersHorizontal size={17} color={COLORS.grey} style={{ marginLeft: 5 }} /></View>
+          </View>
           {holding && holdingStats ? (
           <View ref={positionAnchorRef} collapsable={false} onLayout={(event) => { positionTop.current = event.nativeEvent.layout.y; }}>
-          <DexPositionReveal active={confirmedTrade === null} replayKey={`${mint}:${holding.updatedAt}`} style={styles.positionOuter}>
+          <DexPositionReveal active replayKey={`${mint}:${holding.updatedAt}`} style={styles.positionOuter}>
             {(clock, revealComplete) => <>
             <ViewShot ref={positionShotRef} options={{ format: "png", quality: 1, result: "tmpfile" }}>
               <View style={styles.positionInner} collapsable={false}>
@@ -401,7 +412,7 @@ export default function DexTokenScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.black }, safe: { flex: 1 }, content: { paddingHorizontal: 15, paddingBottom: 22 },
+  root: { flex: 1, backgroundColor: "transparent" }, safe: { flex: 1 }, content: { paddingHorizontal: 15, paddingBottom: 22 },
   topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", position: "relative", minHeight: 44, marginTop: 7, marginBottom: 18 },
   back: { margin: 20 }, heading: { color: COLORS.white, fontSize: 22, margin: 20 },
   round: { width: 37, height: 37, borderRadius: 19, borderWidth: 1, borderColor: "#424638", backgroundColor: "#292D21", alignItems: "center", justifyContent: "center" },
@@ -411,7 +422,8 @@ const styles = StyleSheet.create({
   chart: { marginHorizontal: -4, marginTop: 4, alignItems: "center", minHeight: 255 },
   chartOverlay: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
   chartEmpty: { color: COLORS.grey, fontSize: 12, textAlign: "center", marginVertical: 16 },
-  periodRow: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", marginBottom: 15, gap: 3 }, periodButton: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 3, backgroundColor: COLORS.stonkDarkG }, selectedPeriod: { backgroundColor: COLORS.stonkGreen }, periodText: { color: COLORS.grey, fontSize: 11 }, selectedText: { color: COLORS.black, fontWeight: "700" },
+  chartTools: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 15 },
+  periodRow: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 3 }, periodButton: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 3, backgroundColor: COLORS.stonkDarkG }, selectedPeriod: { backgroundColor: COLORS.stonkGreen }, periodText: { color: COLORS.grey, fontSize: 11 }, selectedText: { color: COLORS.black, fontWeight: "700" },
   positionOuter: { borderRadius: 12, padding: 4, marginBottom: 18 }, positionInner: { backgroundColor: "rgba(28,28,28,0.78)", borderRadius: 9, padding: 15 }, positionTitle: { color: COLORS.stonkGreen, fontSize: 13, fontFamily: FONTS.regular }, demoLabel: { color: COLORS.grey, fontSize: 10 }, positionValues: { flexDirection: "row", justifyContent: "space-between", marginTop: 7 }, positionAmount: { color: COLORS.white, fontSize: 23, fontWeight: "700" }, muted: { color: COLORS.grey, fontSize: 12, marginTop: 4 }, pnl: { color: COLORS.buy, fontSize: 19, fontWeight: "700" }, pnlBadge: { color: COLORS.buy, fontSize: 11, marginTop: 5 }, positionFoot: { flexDirection: "row", justifyContent: "space-between", marginTop: 20, flexWrap: "wrap" }, white: { color: COLORS.white, fontFamily: FONTS.regular, fontSize: 12 }, share: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, paddingVertical: 10, minHeight: 34 }, shareText: { color: COLORS.white, fontFamily: FONTS.regular, fontSize: 12 },
   tabs: { flexDirection: "row", borderWidth: 1, borderColor: COLORS.stonkGreen, borderRadius: 5, padding: 3, gap: 3, marginBottom: 8 }, tab: { flex: 1, backgroundColor: COLORS.stonkDarkG, borderRadius: 4, alignItems: "center", justifyContent: "center", paddingVertical: 10 }, tabActive: { backgroundColor: COLORS.stonkLightG }, tabText: { color: COLORS.white, fontSize: 10, fontFamily: FONTS.regular }, tabTextActive: { color: COLORS.black, fontWeight: "700" },
   txRow: { backgroundColor: "#1A1A1A", borderRadius: 7, padding: 12, marginBottom: 5, flexDirection: "row", justifyContent: "space-between" }, txName: { color: COLORS.white, fontSize: 15, fontWeight: "600" }, txTime: { color: COLORS.grey, fontSize: 10, marginTop: 5 }, txAmount: { color: COLORS.buy, fontSize: 13, fontWeight: "600" }, infoBox: { backgroundColor: "#1A1A1A", borderRadius: 8, padding: 20, gap: 8 },

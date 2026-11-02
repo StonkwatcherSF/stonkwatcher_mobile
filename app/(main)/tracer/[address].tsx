@@ -1,3 +1,4 @@
+import { useBackgroundScroll } from "../../../components/AppBackground";
 import { Skeleton, SkeletonGroup, SkeletonPage } from "../../../components/Skeleton";
 import React, { useMemo, useState } from "react";
 import {
@@ -52,7 +53,6 @@ import { shareExternally } from "../../../utils/share";
 import type { BubbleMapData, TracerPayload } from "../../../lib/types";
 
 const LIME = "#C6E900";
-const BG = "#10110B";
 const PANEL = "#151515";
 const MUTED = "#B6B6B6";
 
@@ -164,6 +164,8 @@ function clusterTitle(kind: string, clusterNo: number | null) {
 
 export default function TracerAnalysisScreen() {
   const router = useRouter();
+  const backgroundScroll = useBackgroundScroll();
+  const holderBackground = useBackgroundScroll();
   const { address: rawAddress } = useLocalSearchParams<{ address?: string | string[] }>();
   const address = readRouteParam(rawAddress);
   const { width, height } = useWindowDimensions();
@@ -266,7 +268,7 @@ export default function TracerAnalysisScreen() {
   }
 
   if (loading && !data) {
-    return <View style={styles.screen}><ScrollView contentContainerStyle={{ paddingTop: 55, paddingBottom: 100 }}>
+    return <View style={styles.screen}><ScrollView {...backgroundScroll} scrollEventThrottle={32} contentContainerStyle={{ paddingTop: 55, paddingBottom: 100 }}>
       <Pressable style={[styles.circleButton, { marginLeft: 20 }]} onPress={() => router.back()} accessibilityLabel="Go back"><ArrowLeft size={20} color="#F0F0F0" /></Pressable>
       <SkeletonPage />
     </ScrollView></View>;
@@ -276,7 +278,10 @@ export default function TracerAnalysisScreen() {
     <View style={styles.screen}>
       <ScrollView nestedScrollEnabled contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}
         scrollEventThrottle={32}
+        onScrollBeginDrag={backgroundScroll.onScrollBeginDrag} onScrollEndDrag={backgroundScroll.onScrollEndDrag}
+        onMomentumScrollEnd={backgroundScroll.onMomentumScrollEnd}
         onScroll={(event) => {
+          backgroundScroll.onScroll(event);
           if (!riskVisible && riskTop !== null && event.nativeEvent.contentOffset.y + event.nativeEvent.layoutMeasurement.height > riskTop + 30) setRiskVisible(true);
           if (!analysisVisible && analysisTop !== null && event.nativeEvent.contentOffset.y + event.nativeEvent.layoutMeasurement.height > analysisTop + 30) setAnalysisVisible(true);
         }}
@@ -459,7 +464,7 @@ export default function TracerAnalysisScreen() {
                 autoCorrect={false}
                 style={styles.holderSearch}
               />
-              <ScrollView nestedScrollEnabled style={styles.holderScroller}>
+              <ScrollView {...holderBackground} scrollEventThrottle={32} nestedScrollEnabled style={styles.holderScroller}>
                 {holderRows.map((group) => (
                   <View key={group.key}>
                     {groupClusters && group.clusterNo != null ? (
@@ -521,7 +526,7 @@ export default function TracerAnalysisScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: BG },
+  screen: { flex: 1, backgroundColor: "transparent" },
   content: { paddingHorizontal: 18, paddingTop: 38, paddingBottom: 185, gap: 8 },
   topBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 3 },
   topActions: { flexDirection: "row", gap: 8 },

@@ -197,6 +197,7 @@ export default function SearchScreen() {
         onScroll={navScroll.onScroll}
         onScrollBeginDrag={navScroll.onScrollBeginDrag}
         onScrollEndDrag={navScroll.onScrollEndDrag}
+        onMomentumScrollEnd={navScroll.onMomentumScrollEnd}
       >
         {searching ? (
           <>
@@ -256,7 +257,7 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#101108" },
+  screen: { flex: 1, backgroundColor: "transparent" },
   scroll: { flex: 1 },
   content: { paddingTop: 49, paddingHorizontal: 17, paddingBottom: 175 },
   sectionTitle: { color: "#FFFFFF", fontSize: 15, fontWeight: "500", marginBottom: 10 },

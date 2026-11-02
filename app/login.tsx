@@ -9,7 +9,6 @@ import {
   StatusBar,
   useWindowDimensions,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import Svg, {
   Defs,
@@ -22,7 +21,6 @@ import Svg, {
 // ============================================
 
 const LIME = "#C6E900";
-const BLACK = "#101010";
 
 // ============================================
 // GRID BACKGROUND
@@ -91,19 +89,6 @@ export default function LoginScreen() {
       <StatusBar barStyle="light-content" />
 
       {/* Background */}
-      <LinearGradient
-        colors={[
-          "#0E0F0D",
-          "#11140B",
-          "#1D2409",
-          "#11130C",
-        ]}
-        locations={[0, 0.4, 0.78, 1]}
-        start={{ x: 0.25, y: 0 }}
-        end={{ x: 0.8, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-
       <GridBackground />
 
       <SafeAreaView style={styles.safeArea}>
@@ -157,7 +142,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BLACK,
+    backgroundColor: "transparent",
   },
 
   safeArea: {

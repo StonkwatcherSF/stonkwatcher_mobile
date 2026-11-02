@@ -70,6 +70,7 @@ export default function TracerScreen() {
         onScroll={navScroll.onScroll}
         onScrollBeginDrag={navScroll.onScrollBeginDrag}
         onScrollEndDrag={navScroll.onScrollEndDrag}
+        onMomentumScrollEnd={navScroll.onMomentumScrollEnd}
         scrollEventThrottle={16}
       >
         <Text style={styles.title}>Tracer</Text>
@@ -257,7 +258,7 @@ export default function TracerScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#10110B",
+    backgroundColor: "transparent",
   },
 
   content: {

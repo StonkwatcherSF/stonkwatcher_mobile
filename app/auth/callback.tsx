@@ -4,7 +4,6 @@ import { Text, View } from "react-native";
 import { Redirect, useLocalSearchParams } from "expo-router";
 import * as Linking from "expo-linking";
 import { createSessionFromUrl } from "../../lib/auth";
-import { COLORS } from "../../constants/theme";
 
 export default function AuthCallbackScreen() {
   const params = useLocalSearchParams();
@@ -36,7 +35,7 @@ export default function AuthCallbackScreen() {
       <View
         style={{
           flex: 1,
-          backgroundColor: COLORS.black,
+          backgroundColor: "transparent",
           justifyContent: "center",
           alignItems: "center",
         }}
@@ -51,7 +50,7 @@ export default function AuthCallbackScreen() {
       <View
         style={{
           flex: 1,
-          backgroundColor: COLORS.black,
+          backgroundColor: "transparent",
           justifyContent: "center",
           alignItems: "center",
           padding: 24,

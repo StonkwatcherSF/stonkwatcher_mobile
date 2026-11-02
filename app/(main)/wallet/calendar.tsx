@@ -8,7 +8,6 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
@@ -23,7 +22,6 @@ import { useNavScroll } from "../../../components/NavAnimationContext";
 import {
   COLORS,
   FONTS,
-  GRADIENTS,
 } from "../../../constants/theme";
 import WalletProfile from "../../../components/WalletProfile";
 import GlassButton from "../../../components/GlassButton";
@@ -217,17 +215,12 @@ export default function RewardsCalendar() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient
-        colors={GRADIENTS.tokens}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
 
       <ScrollView
         onScroll={navScroll.onScroll}
         onScrollBeginDrag={navScroll.onScrollBeginDrag}
         onScrollEndDrag={navScroll.onScrollEndDrag}
+        onMomentumScrollEnd={navScroll.onMomentumScrollEnd}
         scrollEventThrottle={16}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -438,7 +431,7 @@ export default function RewardsCalendar() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: COLORS.black,
+    backgroundColor: "transparent",
   },
 
   content: {

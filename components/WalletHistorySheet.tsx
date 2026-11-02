@@ -1,3 +1,4 @@
+import { useBackgroundScroll } from "./AppBackground";
 
 import React, { useEffect, useRef } from "react";
 import {
@@ -173,6 +174,7 @@ export default function WalletHistorySheet({
     visible,
     onClose,
 }: Props) {
+  const backgroundScroll = useBackgroundScroll();
     const { trades } = usePortfolio();
     const transactions: Transaction[] = trades.map((trade) => ({
         id: trade.id,
@@ -347,7 +349,7 @@ export default function WalletHistorySheet({
                     </Text>
 
                     {/* TRANSACTION LIST */}
-                    <ScrollView
+                    <ScrollView {...backgroundScroll} scrollEventThrottle={32}
                         showsVerticalScrollIndicator={false}
                         bounces={false}
                         contentContainerStyle={styles.list}
