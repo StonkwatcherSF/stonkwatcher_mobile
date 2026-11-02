@@ -33,7 +33,15 @@
       "expo-router",
       "expo-web-browser",
       "expo-sharing",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow StonkWatcher to access your photos so you can set a profile image.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
     ]
   }
 }
