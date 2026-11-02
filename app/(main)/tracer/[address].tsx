@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from "react";
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -45,6 +44,7 @@ import {
   riskLabel,
   signedPoints,
 } from "../../../lib/format";
+import { dexHref } from "../../../lib/nav";
 import { isSolanaAddress, readRouteParam, truncateAddress } from "../../../lib/solana";
 import { shareExternally } from "../../../utils/share";
 import type { BubbleMapData, TracerPayload } from "../../../lib/types";
@@ -485,7 +485,16 @@ export default function TracerAnalysisScreen() {
       </ScrollView>
       {!isWallet ? (
       <View style={styles.tradeArea} pointerEvents="box-none">
-        <Pressable style={styles.tradeButton} onPress={() => Alert.alert("Demo trade", "Trading is not connected yet.")}>
+        <Pressable
+          style={styles.tradeButton}
+          accessibilityRole="button"
+          accessibilityLabel="Trade this token on DEX"
+          onPress={() => {
+            const mint = token?.mint || address;
+            if (!isSolanaAddress(mint)) return;
+            router.push(dexHref(mint));
+          }}
+        >
           <Text style={styles.tradeText}>Trade</Text>
         </Pressable>
       </View>
