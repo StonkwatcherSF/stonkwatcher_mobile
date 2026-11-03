@@ -129,9 +129,9 @@ export default function BlacklistHome() {
 
         <Text style={styles.description}>
           A private list of wallets and tokens you will not
-          touch. It stays in this app session for the demo.
-          It is a reminder, not a public registry and not a
-          DEX lock.
+          touch. Blocked tokens, and later launches from the
+          same dev wallet, stay out of your feed and search.
+          Saved on this device.
         </Text>
 
         <Pressable

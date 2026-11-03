@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { BadgeCheck, Search, X } from "lucide-react-native";
+import { useBlacklist } from "../../../components/BlacklistContext";
 import { useNavScroll } from "../../../components/NavAnimationContext";
 import TokenImage from "../../../components/TokenImage";
 import {
@@ -130,6 +131,7 @@ export default function SearchScreen() {
   const { data: results, loading } = useSearchTokens(debounced);
   const { data: trending } = useTrendingTokens(8);
   const { recents, remember } = useSearchRecents();
+  const { isHidden } = useBlacklist();
 
   useEffect(() => {
     const show = Keyboard.addListener(
@@ -175,7 +177,7 @@ export default function SearchScreen() {
 
   const searching = query.trim().length > 0;
   const filtered = (results ?? []).map(toItem);
-  const recentItems = recents.map(fromRecent);
+  const recentItems = recents.filter((item) => !isHidden({ mint: item.mint })).map(fromRecent);
   const tokenItems = (trending ?? []).map(toItem);
 
   return (

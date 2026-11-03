@@ -22,6 +22,7 @@ export const WSOL_MINT = "So11111111111111111111111111111111111111112";
 export const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
 export const SEARCH_RECENTS_KEY = "stonkwatcher.search.recents";
+export const BLACKLIST_KEY = "stonkwatcher.blacklist";
 export const MOCK_PORTFOLIO_KEY = "stonkwatcher.mock-portfolio";
 export const MOCK_STARTING_CASH = 93737.34;
 export const MOCK_TRADE_FEE = 0.95;

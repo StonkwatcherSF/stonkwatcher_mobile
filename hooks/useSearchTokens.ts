@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useVisibleRows } from "../components/BlacklistContext";
 import { SEARCH_RECENTS_KEY } from "../lib/config";
 import { fetchTokens } from "../lib/stonk";
 import { tokenMint } from "../lib/solana";
@@ -30,7 +31,7 @@ export function useDebouncedValue(value: string, delay = DEBOUNCE_MS) {
 
 export function useSearchTokens(query: string) {
   const q = query.trim();
-  return useAsync<StonkFunToken[]>(
+  const result = useAsync<StonkFunToken[]>(
     async () => {
       const page = await fetchTokens({ q, raw: true, fast: true, pageSize: 20, sort: "volume" });
       return (page.tokens ?? []).filter((token) => tokenMint(token));
@@ -38,16 +39,18 @@ export function useSearchTokens(query: string) {
     [q],
     q.length > 0,
   );
+  return { ...result, data: useVisibleRows(result.data) };
 }
 
 export function useTrendingTokens(limit = 8) {
-  return useAsync<StonkFunToken[]>(
+  const result = useAsync<StonkFunToken[]>(
     async () => {
       const page = await fetchTokens({ sort: "volume", pageSize: limit });
       return (page.tokens ?? []).filter((token) => tokenMint(token)).slice(0, limit);
     },
     [limit],
   );
+  return { ...result, data: useVisibleRows(result.data) };
 }
 
 export function useSearchRecents() {

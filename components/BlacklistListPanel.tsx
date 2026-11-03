@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { ArrowLeft } from "lucide-react-native";
 import BlacklistIcon from "../assets/icons/carbon_disable-step.svg";
+import { truncateAddress } from "../lib/solana";
 import {
   useBlacklist,
   type BlacklistEntry,
@@ -174,6 +175,11 @@ function SwipeableEntry({
           >
             {entry.reasons.join(" · ")}
           </Text>
+          {entry.kind === "Token" && entry.devAddress ? (
+            <Text style={styles.reasons} numberOfLines={1}>
+              Dev {truncateAddress(entry.devAddress, 4)} hidden
+            </Text>
+          ) : null}
         </View>
 
         <View style={styles.blockedPill}>
