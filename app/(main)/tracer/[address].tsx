@@ -1,3 +1,5 @@
+import { useBackgroundScroll } from "../../../components/AppBackground";
+import { Skeleton, SkeletonGroup, SkeletonPage } from "../../../components/Skeleton";
 import React, { useMemo, useState } from "react";
 import {
   Pressable,
@@ -22,10 +24,11 @@ import {
 
 import ShareIcon from "../../../assets/icons/share.svg";
 import SettingsIcon from "../../../assets/icons/settings.svg";
-import StonkIcon from "../../../assets/icons/stonkwatcher-icon.svg";
 import BubbleIcon from "../../../assets/icons/bubble-map.svg";
 import TokenImage from "../../../components/TokenImage";
 import HolderBubbleMap from "../../../components/HolderBubbleMap";
+import TracerAnalysisPanel from "../../../components/TracerAnalysisPanel";
+import TracerRiskCard from "../../../components/TracerRiskCard";
 import { useTracer } from "../../../hooks/useTracer";
 import {
   BUBBLEMAP_V2_TOP_HOLDERS,
@@ -51,7 +54,6 @@ import { shareExternally } from "../../../utils/share";
 import type { BubbleMapData, TracerPayload, TracerScoreRow } from "../../../lib/types";
 
 const LIME = "#C6E900";
-const BG = "#10110B";
 const PANEL = "#151515";
 const MUTED = "#B6B6B6";
 
@@ -142,10 +144,16 @@ function clusterTitle(kind: string, clusterNo: number | null) {
 
 export default function TracerAnalysisScreen() {
   const router = useRouter();
+  const backgroundScroll = useBackgroundScroll();
+  const holderBackground = useBackgroundScroll();
   const { address: rawAddress } = useLocalSearchParams<{ address?: string | string[] }>();
   const address = readRouteParam(rawAddress);
-  const { width } = useWindowDimensions();
-  const [detailsOpen, setDetailsOpen] = useState(true);
+  const { width, height } = useWindowDimensions();
+  const [riskTop, setRiskTop] = useState<number | null>(null);
+  const [riskVisible, setRiskVisible] = useState(false);
+  const [analysisTop, setAnalysisTop] = useState<number | null>(null);
+  const [analysisVisible, setAnalysisVisible] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [marketOpen, setMarketOpen] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [fitKey, setFitKey] = useState(0);
@@ -248,9 +256,25 @@ export default function TracerAnalysisScreen() {
     });
   }
 
+  if (loading && !data) {
+    return <View style={styles.screen}><ScrollView {...backgroundScroll} scrollEventThrottle={32} contentContainerStyle={{ paddingTop: 55, paddingBottom: 100 }}>
+      <Pressable style={[styles.circleButton, { marginLeft: 20 }]} onPress={() => router.back()} accessibilityLabel="Go back"><ArrowLeft size={20} color="#F0F0F0" /></Pressable>
+      <SkeletonPage />
+    </ScrollView></View>;
+  }
+
   return (
     <View style={styles.screen}>
-      <ScrollView nestedScrollEnabled contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView nestedScrollEnabled contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}
+        scrollEventThrottle={32}
+        onScrollBeginDrag={backgroundScroll.onScrollBeginDrag} onScrollEndDrag={backgroundScroll.onScrollEndDrag}
+        onMomentumScrollEnd={backgroundScroll.onMomentumScrollEnd}
+        onScroll={(event) => {
+          backgroundScroll.onScroll(event);
+          if (!riskVisible && riskTop !== null && event.nativeEvent.contentOffset.y + event.nativeEvent.layoutMeasurement.height > riskTop + 30) setRiskVisible(true);
+          if (!analysisVisible && analysisTop !== null && event.nativeEvent.contentOffset.y + event.nativeEvent.layoutMeasurement.height > analysisTop + 30) setAnalysisVisible(true);
+        }}
+      >
         <View style={styles.topBar}>
           <Pressable style={styles.circleButton} onPress={() => router.back()} accessibilityLabel="Go back">
             <ArrowLeft size={20} color="#F0F0F0" />
@@ -283,8 +307,7 @@ export default function TracerAnalysisScreen() {
             {quote ? <Text style={styles.ttwoBadge}>◉ {quote}</Text> : null}
             <View style={styles.statusRow}>
               {status ? <Text style={styles.statusBadge}>{status}</Text> : null}
-              {analyzing ? <Text style={styles.statusBadge}>Analyzing</Text> : null}
-              {loading && !data ? <Text style={styles.statusBadge}>Loading</Text> : null}
+              {analyzing ? <SkeletonGroup label="Analyzing address"><Skeleton width={62} height={14} /></SkeletonGroup> : null}
             </View>
           </View>
         </View>
@@ -330,6 +353,33 @@ export default function TracerAnalysisScreen() {
           )}
         </View>
 
+        <View onLayout={(event) => {
+          const top = event.nativeEvent.layout.y;
+          setRiskTop(top);
+          if (top + 30 < height) setRiskVisible(true);
+        }}>
+          <TracerRiskCard
+            key={`${address}:${score ?? intel?.score ?? "unscored"}`}
+            score={score ?? intel?.score ?? null}
+            label={score != null ? riskLabel(score) : intelScoreLabel(intel?.scoreLabel, intel?.score)}
+            analyzing={analyzing}
+            ready={Boolean(data)}
+            visible={riskVisible}
+          />
+        </View>
+
+        <View onLayout={(event) => {
+          const top = event.nativeEvent.layout.y;
+          setAnalysisTop(top);
+          if (top + 30 < height) setAnalysisVisible(true);
+        }}>
+          <TracerAnalysisPanel
+            key={`${address}:${signals.map((row) => `${row.score}:${row.message}`).join("|")}`}
+            rows={signals}
+            pending={analyzing && !(token?.brief.breakdown?.length || token?.brief.signals?.length || intel?.split)}
+            ready={Boolean(data)}
+            visible={analysisVisible}
+          />
         <View style={styles.riskCard}>
           <View style={styles.riskRing}><View style={styles.riskRingInner} /></View>
           <View style={styles.riskText}>
@@ -429,7 +479,7 @@ export default function TracerAnalysisScreen() {
                 autoCorrect={false}
                 style={styles.holderSearch}
               />
-              <ScrollView nestedScrollEnabled style={styles.holderScroller}>
+              <ScrollView {...holderBackground} scrollEventThrottle={32} nestedScrollEnabled style={styles.holderScroller}>
                 {holderRows.map((group) => (
                   <View key={group.key}>
                     {groupClusters && group.clusterNo != null ? (
@@ -491,7 +541,7 @@ export default function TracerAnalysisScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: BG },
+  screen: { flex: 1, backgroundColor: "transparent" },
   content: { paddingHorizontal: 18, paddingTop: 38, paddingBottom: 185, gap: 8 },
   topBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 3 },
   topActions: { flexDirection: "row", gap: 8 },
@@ -518,22 +568,7 @@ const styles = StyleSheet.create({
   snapshotItem: { width: "33.333%", paddingRight: 4 },
   snapshotLabel: { color: "#A9A9A9", fontSize: 8, marginBottom: 6 },
   snapshotValue: { color: "#FFFFFF", fontSize: 12, fontWeight: "600" },
-  riskCard: { minHeight: 50, borderRadius: 8, backgroundColor: "#202609", flexDirection: "row", alignItems: "center", paddingHorizontal: 10, gap: 9 },
-  riskRing: { width: 32, height: 32, borderRadius: 16, borderWidth: 5, borderColor: "#B4CC00", borderTopColor: "#454D11", justifyContent: "center", alignItems: "center" },
-  riskRingInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: "#202609" },
-  riskText: { flex: 1 },
-  riskLabel: { color: "#B4B4B4", fontSize: 9 },
-  riskValue: { color: "#FFFFFF", fontSize: 13, fontWeight: "600" },
-  riskBadge: { color: "#FFFFFF", fontWeight: "600", fontSize: 16, backgroundColor: "#151A07", paddingHorizontal: 9, paddingVertical: 5, borderRadius: 4, overflow: "hidden" },
-  analysisPanel: { borderRadius: 9, borderWidth: 1, borderColor: "#849B00", padding: 8, backgroundColor: "#171D05" },
-  iconHeading: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
   mapTitleRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "#1B2432" },
-  limeHeading: { color: LIME, fontSize: 16, fontWeight: "600" },
-  analysisBody: { backgroundColor: "#111111", borderRadius: 5, padding: 10, gap: 12 },
-  analysisDisclaimer: { color: "#F0F0F0", fontSize: 11, lineHeight: 17 },
-  signalRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  signalScore: { color: LIME, fontWeight: "700", fontSize: 12, width: 27 },
-  signalText: { color: "#E4E4E4", fontSize: 11, lineHeight: 16, flex: 1 },
   mapPanel: { backgroundColor: "#080D18", borderRadius: 9, overflow: "hidden", paddingBottom: 13 },
   mapTitle: { color: LIME, fontSize: 16, fontWeight: "600" },
   mapToolbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 12, gap: 8 },

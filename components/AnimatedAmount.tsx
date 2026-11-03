@@ -11,12 +11,14 @@ type Props = {
   amount: number;
   duration?: number;
   style?: TextStyle;
+  onComplete?: () => void;
 };
 
 export default function AnimatedAmount({
   amount,
   duration = 650,
   style,
+  onComplete,
 }: Props) {
   const animatedValue = useRef(
     new Animated.Value(0)
@@ -40,13 +42,13 @@ export default function AnimatedAmount({
       duration,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
-    }).start();
+    }).start(({ finished }) => { if (finished) onComplete?.(); });
 
     return () => {
       animatedValue.stopAnimation();
       animatedValue.removeListener(listenerId);
     };
-  }, [amount, duration, animatedValue]);
+  }, [amount, duration, animatedValue, onComplete]);
 
   const formattedAmount = Math.abs(displayValue).toLocaleString(
     "en-US",

@@ -15,6 +15,7 @@ export type SearchRecent = {
   name: string;
   symbol: string;
   imageUrl?: string;
+  verified?: boolean;
   priceUsd?: number;
   marketCapUsd?: number;
   change?: number;
@@ -29,8 +30,15 @@ export function useDebouncedValue(value: string, delay = DEBOUNCE_MS) {
   return debounced;
 }
 
+export async function searchTokens(query: string) {
+  const page = await fetchTokens({ q: query.trim(), raw: true, fast: true, pageSize: 20, sort: "volume" });
+  return (page.tokens ?? []).filter((token) => tokenMint(token));
+}
+
 export function useSearchTokens(query: string) {
   const q = query.trim();
+  return useAsync<StonkFunToken[]>(
+    () => searchTokens(q),
   const result = useAsync<StonkFunToken[]>(
     async () => {
       const page = await fetchTokens({ q, raw: true, fast: true, pageSize: 20, sort: "volume" });

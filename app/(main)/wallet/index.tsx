@@ -1,3 +1,6 @@
+import TokenCardPressable from "../../../components/TokenCardPressable";
+import ConfirmationCelebration from "../../../components/ConfirmationCelebration";
+import AnimatedAmount from "../../../components/AnimatedAmount";
 
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -30,7 +33,6 @@ import {
 import {
   COLORS,
   FONTS,
-  GRADIENTS,
 } from "../../../constants/theme";
 
 import GlassButton from "../../../components/GlassButton";
@@ -62,6 +64,7 @@ type Holding = {
   valueUsd: number;
   change: number;
   imageUrl?: string | null;
+  verified?: boolean;
   date: string;
 };
 
@@ -79,6 +82,7 @@ function fromOpenPosition(position: MockPosition): Holding {
     valueUsd: stats.value,
     change: stats.pct,
     imageUrl: position.imageUrl,
+    verified: position.verified === true,
     date: position.updatedAt || position.openedAt,
   };
 }
@@ -94,6 +98,7 @@ function fromClosedPosition(position: MockClosedPosition): Holding {
     valueUsd: Math.abs(position.pnlUsd),
     change: position.pnlPct,
     imageUrl: position.imageUrl,
+    verified: position.verified === true,
     date: position.closedAt,
   };
 }
@@ -210,7 +215,7 @@ function PositionCard({
   const gradient = getPositionGradient(token, maxValue);
 
   return (
-    <Pressable onPress={onPress} disabled={!onPress}>
+    <TokenCardPressable onPress={onPress} disabled={!onPress}>
     <LinearGradient
       colors={gradient.colors}
       locations={gradient.locations}
@@ -231,10 +236,10 @@ function PositionCard({
             {token.name}
           </Text>
 
-          <BadgeCheck
+          {token.verified === true && <BadgeCheck
             size={14}
             color={COLORS.stonkGreen}
-          />
+          />}
         </View>
 
         <Text style={[
@@ -296,7 +301,7 @@ function PositionCard({
         </View>
       </View>
     </LinearGradient>
-    </Pressable>
+    </TokenCardPressable>
   );
 }
 
@@ -407,17 +412,11 @@ export default function WalletScreen() {
     <View style={styles.root}>
       {/* Background */}
 
-      <LinearGradient
-        colors={GRADIENTS.tokens}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-
       <ScrollView
         onScroll={navScroll.onScroll}
         onScrollBeginDrag={navScroll.onScrollBeginDrag}
         onScrollEndDrag={navScroll.onScrollEndDrag}
+        onMomentumScrollEnd={navScroll.onMomentumScrollEnd}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
@@ -614,17 +613,18 @@ export default function WalletScreen() {
         )}
       </ScrollView>
       {showWithdrawalBanner && !!withdrawalId && !!withdrawalAmount && !!withdrawalTo && (
-        <View style={[styles.withdrawBanner, { top: insets.top + 10 }]} pointerEvents="none">
+        <ConfirmationCelebration style={[styles.withdrawBanner, { top: insets.top + 10 }]}>
+          {(onAmountComplete) => <>
           <Text style={styles.withdrawBannerAddress} numberOfLines={1}>
             {withdrawalTo.slice(0, 10)}...{withdrawalTo.slice(-10)}
           </Text>
-          <Text style={styles.withdrawBannerAmount}>
-            -${Number(withdrawalAmount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </Text>
-        </View>
+          <AnimatedAmount amount={-Math.abs(Number(withdrawalAmount))} style={styles.withdrawBannerAmount} onComplete={onAmountComplete} />
+          </>}
+        </ConfirmationCelebration>
       )}
       {showSendBanner && !!sendId && !!sendAmount && !!sendName && (
-        <View style={[styles.withdrawBanner, { top: insets.top + 10 }]} pointerEvents="none">
+        <ConfirmationCelebration style={[styles.withdrawBanner, { top: insets.top + 10 }]}>
+          {(onAmountComplete) => <>
           <View style={styles.bannerAvatar}>
             <Image source={PLACEHOLDER} style={styles.bannerImage} resizeMode="cover" />
           </View>
@@ -639,10 +639,9 @@ export default function WalletScreen() {
               {sendHandle || "@user"}
             </Text>
           </View>
-          <Text style={styles.withdrawBannerAmount}>
-            -${Number(sendAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </Text>
-        </View>
+          <AnimatedAmount amount={-Math.abs(Number(sendAmount))} style={styles.withdrawBannerAmount} onComplete={onAmountComplete} />
+          </>}
+        </ConfirmationCelebration>
       )}
       <WalletMoreSheet
         visible={moreVisible}
@@ -686,7 +685,7 @@ const styles = StyleSheet.create({
   withdrawBannerAmount: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
   root: {
     flex: 1,
-    backgroundColor: COLORS.black,
+    backgroundColor: "transparent",
   },
 
   content: {

@@ -1,3 +1,6 @@
+import { useBackgroundScroll } from "../../components/AppBackground";
+import TokenCardPressable from "../../components/TokenCardPressable";
+import { SkeletonRows } from "../../components/Skeleton";
 
 import React, { useState } from "react";
 import {
@@ -7,16 +10,13 @@ import {
   Pressable,
   ScrollView,
   StatusBar,
-  ActivityIndicator,
   TextInput,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { BadgeCheck } from "lucide-react-native";
+import { BadgeCheck, ChevronDown, ChevronUp } from "lucide-react-native";
 import {
   COLORS,
   FONTS,
-  GRADIENTS,
 } from "../../constants/theme";
 import { useNavScroll } from "../../components/NavAnimationContext";
 import TokenImage from "../../components/TokenImage";
@@ -37,6 +37,7 @@ type Tab = "Trending" | "New";
 export default function TokensScreen() {
   const router = useRouter();
   const navScroll = useNavScroll();
+  const quoteScroll = useBackgroundScroll();
   const { cash } = usePortfolio();
 
   const [activeTab, setActiveTab] =
@@ -72,13 +73,6 @@ export default function TokensScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-
-      <LinearGradient
-        colors={GRADIENTS.tokens}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 1, y: 0.5 }}
-        style={StyleSheet.absoluteFill}
-      />
 
       <SafeAreaView
         style={styles.safeArea}
@@ -138,6 +132,9 @@ export default function TokensScreen() {
         <Pressable
           style={styles.quoteSelector}
           onPress={() => setShowQuotes(!showQuotes)}
+          accessibilityRole="button"
+          accessibilityLabel={quote.symbol === "All Quotes" ? "Select quote" : `Quote: ${quote.symbol}`}
+          accessibilityState={{ expanded: showQuotes }}
         >
           <Text style={styles.quoteText}>
             {quote.symbol === "All Quotes"
@@ -145,9 +142,11 @@ export default function TokensScreen() {
               : quote.symbol}
           </Text>
 
-          <Text style={styles.quoteArrow}>
-            {showQuotes ? "⌃" : "⌄"}
-          </Text>
+          {showQuotes ? (
+            <ChevronUp size={18} color="#DADADA" />
+          ) : (
+            <ChevronDown size={18} color="#DADADA" />
+          )}
         </Pressable>
 
         {showQuotes && (
@@ -161,7 +160,7 @@ export default function TokensScreen() {
               autoCorrect={false}
               style={styles.quoteSearch}
             />
-            <ScrollView style={styles.quoteList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+            <ScrollView {...quoteScroll} scrollEventThrottle={32} style={styles.quoteList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
               {visibleQuotes.map((option) => (
                 <Pressable
                   key={option.mint || option.symbol}
@@ -188,15 +187,17 @@ export default function TokensScreen() {
             navScroll.onScrollBeginDrag
           }
           onScrollEndDrag={navScroll.onScrollEndDrag}
+        onMomentumScrollEnd={navScroll.onMomentumScrollEnd}
           scrollEventThrottle={16}
           style={styles.tokenList}
           contentContainerStyle={{
+            paddingHorizontal: 10,
             paddingBottom: 115,
           }}
           showsVerticalScrollIndicator={false}
         >
           {loading && !(tokens?.length) ? (
-            <ActivityIndicator color={COLORS.stonkGreen} style={{ marginTop: 28 }} />
+            <SkeletonRows count={7} />
           ) : null}
           {error && !(tokens?.length) ? (
             <Text style={styles.marketCap}>{error}</Text>
@@ -208,7 +209,7 @@ export default function TokensScreen() {
             const change = token.market?.priceChange24h ?? 0;
             const mint = tokenMint(token);
             return (
-            <Pressable
+            <TokenCardPressable
               key={mint}
               style={styles.tokenCard}
               onPress={() => openToken(token)}
@@ -234,12 +235,12 @@ export default function TokensScreen() {
                     {token.name || token.symbol || truncateAddress(mint)}
                   </Text>
 
-                  <BadgeCheck
+                  {token.verified === true && <BadgeCheck
                     size={17}
                     color={COLORS.stonkGreen}
                     strokeWidth={2.2}
                     style={styles.verifiedIcon}
-                  />
+                  />}
                 </View>
 
                 <Text style={styles.marketCap}>
@@ -268,7 +269,7 @@ export default function TokensScreen() {
                   {Math.abs(change).toFixed(2)}%
                 </Text>
               </View>
-            </Pressable>
+            </TokenCardPressable>
             );
           })}
         </ScrollView>
@@ -280,7 +281,7 @@ export default function TokensScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#101010",
+    backgroundColor: "transparent",
   },
 
   safeArea: {
@@ -383,11 +384,6 @@ const styles = StyleSheet.create({
   quoteText: {
     color: "#DADADA",
     fontSize: 13,
-  },
-
-  quoteArrow: {
-    color: "#DADADA",
-    fontSize: 18,
   },
 
   quoteMenu: {

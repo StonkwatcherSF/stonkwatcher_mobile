@@ -1,5 +1,6 @@
+import { SkeletonMap } from "./Skeleton";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, PanResponder, StyleSheet, Text, View } from "react-native";
+import { PanResponder, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, G, Line, Text as SvgLabel } from "react-native-svg";
 import {
   ALPHA_DECAY,
@@ -14,7 +15,6 @@ import {
 } from "../lib/bubble-layout";
 import type { BubbleMapData, BubbleMapLink } from "../lib/types";
 
-const LIME = "#C6E900";
 
 type Snapshot = {
   key: string;
@@ -131,10 +131,7 @@ export default function HolderBubbleMap({ data, loading, width, height, zoom, fi
 
   if (loading || ((map?.nodes?.length ?? 0) > 0 && !nodes.length)) {
     return (
-      <View style={[styles.empty, { width, height }]}>
-        <ActivityIndicator color={LIME} />
-        <Text style={styles.emptyText}>Loading v2 holder map</Text>
-      </View>
+      <SkeletonMap width={width} height={height} />
     );
   }
 

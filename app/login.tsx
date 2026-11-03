@@ -9,7 +9,6 @@ import {
   StatusBar,
   useWindowDimensions,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import Svg, {
   Defs,
@@ -22,7 +21,6 @@ import Svg, {
 // ============================================
 
 const LIME = "#C6E900";
-const BLACK = "#101010";
 
 // ============================================
 // GRID BACKGROUND
@@ -91,19 +89,6 @@ export default function LoginScreen() {
       <StatusBar barStyle="light-content" />
 
       {/* Background */}
-      <LinearGradient
-        colors={[
-          "#0E0F0D",
-          "#11140B",
-          "#1D2409",
-          "#11130C",
-        ]}
-        locations={[0, 0.4, 0.78, 1]}
-        start={{ x: 0.25, y: 0 }}
-        end={{ x: 0.8, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-
       <GridBackground />
 
       <SafeAreaView style={styles.safeArea}>
@@ -127,36 +112,17 @@ export default function LoginScreen() {
             onPress={handleDemoLogin}
             style={({ pressed }) => [
               styles.loginButton,
-              styles.appleButton,
+              styles.guestButton,
               pressed && styles.pressed,
             ]}
             accessibilityRole="button"
-            accessibilityLabel="Continue with Apple demo"
+            accessibilityLabel="Continue as guest"
           >
-            <Text style={styles.appleSymbol}>●</Text>
-            <Text style={styles.appleText}>
-              Sign in with Apple
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={handleDemoLogin}
-            style={({ pressed }) => [
-              styles.loginButton,
-              styles.googleButton,
-              pressed && styles.pressed,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Continue with Google demo"
-          >
-            <Text style={styles.googleSymbol}>G</Text>
-            <Text style={styles.googleText}>
-              Sign in with Google
-            </Text>
+            <Text style={styles.guestText}>Continue as guest</Text>
           </Pressable>
 
           <Text style={styles.terms}>
-            By signing up, you agree to our Terms of
+            By continuing, you agree to our Terms of
             Service and Privacy Policy.
           </Text>
 
@@ -176,7 +142,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BLACK,
+    backgroundColor: "transparent",
   },
 
   safeArea: {
@@ -236,11 +202,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 
-  appleButton: {
-    backgroundColor: "#FFFFFF",
-  },
-
-  googleButton: {
+  guestButton: {
     backgroundColor: LIME,
   },
 
@@ -249,26 +211,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.99 }],
   },
 
-  appleSymbol: {
-    color: "#000000",
-    fontSize: 18,
-    fontWeight: "900",
-  },
-
-  appleText: {
-    color: "#000000",
-    fontSize: 14,
-    fontWeight: "700",
-    fontFamily: "GoogleSansFlex",
-  },
-
-  googleSymbol: {
-    color: "#000000",
-    fontSize: 19,
-    fontWeight: "900",
-  },
-
-  googleText: {
+  guestText: {
     color: "#000000",
     fontSize: 14,
     fontWeight: "700",

@@ -7,6 +7,7 @@ export type MockPosition = {
   name: string;
   symbol: string;
   imageUrl?: string | null;
+  verified?: boolean;
   tokens: number;
   investedUsd: number;
   avgEntryMc: number | null;
@@ -28,6 +29,7 @@ export type MockTrade = {
   name: string;
   symbol: string;
   imageUrl?: string | null;
+  verified?: boolean;
   mode: "buy" | "sell";
   usd: number;
   tokens: number;
@@ -41,6 +43,7 @@ export type MockTradeInput = {
   name: string;
   symbol: string;
   imageUrl?: string | null;
+  verified?: boolean;
   amountUsd: number;
   priceUsd: number;
   marketCapUsd?: number | null;
@@ -130,6 +133,7 @@ function applyBuy(state: PortfolioState, input: MockTradeInput): ApplyResult {
         name: input.name || existing.name,
         symbol: normalizeSymbol(input.symbol || existing.symbol),
         imageUrl: input.imageUrl ?? existing.imageUrl,
+        verified: input.verified === true,
         tokens: existing.tokens + tokens,
         investedUsd: existing.investedUsd + amount,
         avgEntryMc:
@@ -145,6 +149,7 @@ function applyBuy(state: PortfolioState, input: MockTradeInput): ApplyResult {
         name: input.name,
         symbol: normalizeSymbol(input.symbol),
         imageUrl: input.imageUrl,
+        verified: input.verified === true,
         tokens,
         investedUsd: amount,
         avgEntryMc: input.marketCapUsd ?? null,
@@ -158,6 +163,7 @@ function applyBuy(state: PortfolioState, input: MockTradeInput): ApplyResult {
     name: nextPosition.name,
     symbol: nextPosition.symbol,
     imageUrl: nextPosition.imageUrl,
+    verified: nextPosition.verified === true,
     mode: "buy",
     usd: amount,
     tokens,
@@ -179,7 +185,8 @@ function applySell(state: PortfolioState, input: MockTradeInput): ApplyResult {
   const amount = Number(input.amountUsd);
   const price = Number(input.priceUsd);
   const mint = input.mint?.trim();
-  const position = state.positions.find((row) => row.mint === mint);
+  const savedPosition = state.positions.find((row) => row.mint === mint);
+  const position = savedPosition ? { ...savedPosition, verified: input.verified === true } : undefined;
   if (!mint || !position) return { ok: false, error: "No demo position to sell." };
   if (!(amount > 0)) return { ok: false, error: "Enter an amount to sell." };
   if (!(price > 0)) return { ok: false, error: "No live price yet." };
@@ -200,6 +207,7 @@ function applySell(state: PortfolioState, input: MockTradeInput): ApplyResult {
     name: position.name,
     symbol: position.symbol,
     imageUrl: position.imageUrl,
+    verified: position.verified === true,
     mode: "sell",
     usd: proceeds,
     tokens: tokensSold,
@@ -236,6 +244,7 @@ function applySell(state: PortfolioState, input: MockTradeInput): ApplyResult {
         row.mint === mint
           ? {
               ...row,
+              verified: position.verified === true,
               tokens: remainingTokens,
               investedUsd: remainingInvested,
               lastPriceUsd: price,

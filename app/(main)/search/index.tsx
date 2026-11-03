@@ -1,3 +1,5 @@
+import TokenCardPressable from "../../../components/TokenCardPressable";
+import { Skeleton, SkeletonGroup, SkeletonRows } from "../../../components/Skeleton";
 import React, { useEffect, useState } from "react";
 import {
   Animated,
@@ -39,6 +41,7 @@ type SearchItem = {
   symbol: string;
   subtitle: string;
   imageUrl?: string;
+  verified?: boolean;
   price: string;
   change: number;
   positive: boolean;
@@ -54,6 +57,7 @@ function toItem(token: StonkFunToken): SearchItem {
     symbol: prettySymbol(token.symbol) || truncateAddress(mint, 4),
     subtitle: formatMc(token.market?.marketCapUsd),
     imageUrl: token.imageUrl || token.logoUrl,
+    verified: token.verified === true,
     price: formatPrice(token.market?.priceUsd),
     change,
     positive: change >= 0,
@@ -69,6 +73,7 @@ function fromRecent(item: SearchRecent): SearchItem {
     symbol: prettySymbol(item.symbol) || item.symbol,
     subtitle: formatMc(item.marketCapUsd),
     imageUrl: item.imageUrl,
+    verified: item.verified === true,
     price: formatPrice(item.priceUsd),
     change,
     positive: change >= 0,
@@ -99,14 +104,14 @@ function Sparkline({ positive }: { positive: boolean }) {
 
 function ResultRow({ item, onPress }: { item: SearchItem; onPress: () => void }) {
   return (
-    <Pressable style={styles.row} onPress={onPress} accessibilityRole="button" accessibilityLabel={`View ${item.name}`}>
+    <TokenCardPressable style={styles.row} onPress={onPress} accessibilityRole="button" accessibilityLabel={`View ${item.name}`}>
       <View style={styles.avatar}>
         <TokenImage uri={item.imageUrl} mint={item.id} style={styles.avatarImage} />
       </View>
       <View style={styles.info}>
         <View style={styles.nameLine}>
           <Text numberOfLines={1} style={styles.name}>{item.name}</Text>
-          <BadgeCheck size={13} color={LIME} />
+          {item.verified === true && <BadgeCheck size={13} color={LIME} />}
         </View>
         <Text numberOfLines={1} style={styles.subtitle}>{item.subtitle}</Text>
       </View>
@@ -117,7 +122,7 @@ function ResultRow({ item, onPress }: { item: SearchItem; onPress: () => void })
           {item.positive ? "▲" : "▼"} {Math.abs(item.change).toFixed(2)}%
         </Text>
       </View>
-    </Pressable>
+    </TokenCardPressable>
   );
 }
 
@@ -129,7 +134,7 @@ export default function SearchScreen() {
   const [keyboardOffset] = useState(() => new Animated.Value(0));
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const { data: results, loading } = useSearchTokens(debounced);
-  const { data: trending } = useTrendingTokens(8);
+  const { data: trending, loading: trendingLoading } = useTrendingTokens(8);
   const { recents, remember } = useSearchRecents();
   const { isHidden } = useBlacklist();
 
@@ -167,6 +172,7 @@ export default function SearchScreen() {
       name: item.name,
       symbol: item.symbol,
       imageUrl: item.imageUrl,
+      verified: item.verified === true,
       priceUsd: Number(item.price.replace(/[^0-9.]/g, "")) || undefined,
       marketCapUsd: undefined,
       change: item.change,
@@ -176,6 +182,7 @@ export default function SearchScreen() {
   }
 
   const searching = query.trim().length > 0;
+  const pendingSearch = loading || query.trim() !== debounced.trim();
   const filtered = (results ?? []).map(toItem);
   const recentItems = recents.filter((item) => !isHidden({ mint: item.mint })).map(fromRecent);
   const tokenItems = (trending ?? []).map(toItem);
@@ -192,12 +199,13 @@ export default function SearchScreen() {
         onScroll={navScroll.onScroll}
         onScrollBeginDrag={navScroll.onScrollBeginDrag}
         onScrollEndDrag={navScroll.onScrollEndDrag}
+        onMomentumScrollEnd={navScroll.onMomentumScrollEnd}
       >
         {searching ? (
           <>
             <Text style={styles.sectionTitle}>Search Results</Text>
-            <Text style={styles.resultCount}>{loading ? "Searching…" : `${filtered.length} ${filtered.length === 1 ? "result" : "results"}`}</Text>
-            {filtered.length ? filtered.map((item) => <ResultRow key={item.id} item={item} onPress={() => openItem(item)} />) : (
+            {pendingSearch ? <SkeletonGroup style={{ marginBottom: 12 }}><Skeleton width={85} height={11} /></SkeletonGroup> : <Text style={styles.resultCount}>{`${filtered.length} ${filtered.length === 1 ? "result" : "results"}`}</Text>}
+            {pendingSearch ? <SkeletonRows count={5} /> : filtered.length ? filtered.map((item) => <ResultRow key={item.id} item={item} onPress={() => openItem(item)} />) : (
               !loading ? (
               <View style={styles.empty}>
                 <Search size={28} color="#777" />
@@ -216,6 +224,7 @@ export default function SearchScreen() {
               </>
             ) : null}
             <Text style={[styles.sectionTitle, recentItems.length ? styles.sectionGap : undefined]}>Tokens</Text>
+            {trendingLoading && !tokenItems.length ? <SkeletonRows count={5} /> : null}
             {tokenItems.map((item) => <ResultRow key={`token-${item.id}`} item={item} onPress={() => openItem(item)} />)}
           </>
         )}
@@ -250,7 +259,7 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#101108" },
+  screen: { flex: 1, backgroundColor: "transparent" },
   scroll: { flex: 1 },
   content: { paddingTop: 49, paddingHorizontal: 17, paddingBottom: 175 },
   sectionTitle: { color: "#FFFFFF", fontSize: 15, fontWeight: "500", marginBottom: 10 },

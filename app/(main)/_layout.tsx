@@ -53,18 +53,12 @@ function MainContent() {
     pathname === "/wallet/send" ||
     pathname.startsWith("/wallet/send/");
 
-  const isTracerProfile =
-    pathname.startsWith("/tracer/") &&
-    pathname !== "/tracer/top-10-volume" &&
-    pathname !== "/tracer/gtaVI";
-
   const hideBottomNav =
     isSnapshot ||
     isDex ||
     isSettings ||
     isWithdraw ||
-    isSend ||
-    isTracerProfile;
+    isSend;
 
   return (
     <View style={styles.container}>
@@ -72,6 +66,7 @@ function MainContent() {
         screenOptions={{
           headerShown: false,
           animation: "none",
+          contentStyle: { backgroundColor: "transparent" },
         }}
       >
         {/* Tokens */}
@@ -165,6 +160,6 @@ function MainContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#101010",
+    backgroundColor: "transparent",
   },
 });

@@ -6,10 +6,12 @@ import { Page, st } from "../../../components/SettingsUI";
 import { useSettings } from "../../../components/SettingsContext";
 import UserAvatar from "../../../components/UserAvatar";
 
+const usernameValue = (value: string) => value.replace(/[@\s]/gu, "");
+
 export default function Profile() {
   const { prefs, update } = useSettings();
   const [name, setName] = useState(prefs.name);
-  const [username, setUsername] = useState(prefs.username);
+  const [username, setUsername] = useState(() => usernameValue(prefs.username));
   const [bio, setBio] = useState(prefs.bio);
 
   const pickAvatar = async () => {
@@ -37,7 +39,12 @@ export default function Profile() {
       scroll
       action="Save Changes"
       onAction={() => {
-        update({ name, username, bio });
+        const handle = usernameValue(username);
+        if (!handle) {
+          Alert.alert("Username required", "Enter a username after the @ symbol.");
+          return;
+        }
+        update({ name, username: `@${handle}`, bio });
         Alert.alert("Saved", "Demo profile updated for this session.");
       }}
     >
@@ -59,12 +66,18 @@ export default function Profile() {
       <Text style={st.label}>Display Name</Text>
       <TextInput style={st.input} value={name} onChangeText={setName} />
       <Text style={st.label}>Username</Text>
-      <TextInput
-        style={st.input}
-        value={username}
-        onChangeText={setUsername}
-        autoCapitalize="none"
-      />
+      <View style={[st.input, styles.usernameField]}>
+        <Text style={styles.usernamePrefix}>@</Text>
+        <TextInput
+          style={styles.usernameInput}
+          value={username}
+          onChangeText={(value) => setUsername(usernameValue(value))}
+          autoCapitalize="none"
+          autoCorrect={false}
+          spellCheck={false}
+          accessibilityLabel="Username, with a fixed @ prefix"
+        />
+      </View>
       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
         <Text style={st.label}>Bio</Text>
         <Text style={st.muted}>{bio.length}/130</Text>
@@ -83,6 +96,23 @@ export default function Profile() {
 }
 
 const styles = StyleSheet.create({
+  usernameField: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  usernamePrefix: {
+    color: "white",
+    fontSize: 14,
+  },
+  usernameInput: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 43,
+    color: "white",
+    fontSize: 14,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
   avatarRow: {
     marginBottom: 28,
   },

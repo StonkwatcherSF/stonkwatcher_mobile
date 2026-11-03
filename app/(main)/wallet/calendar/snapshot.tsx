@@ -1,3 +1,5 @@
+import { useBackgroundScroll } from "../../../../components/AppBackground";
+import { Skeleton, SkeletonGroup } from "../../../../components/Skeleton";
 
 import React, { useRef, useState } from "react";
 import {
@@ -7,7 +9,6 @@ import {
     Pressable,
     ScrollView,
     Alert,
-    ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -24,6 +25,8 @@ import {
 } from "../../../../constants/theme";
 import GlassButton from "../../../../components/GlassButton";
 import TokenImage from "../../../../components/TokenImage";
+import UserAvatar from "../../../../components/UserAvatar";
+import { useSettings } from "../../../../components/SettingsContext";
 import { mintPnl, positionPnl, utcDateKey, usePortfolio } from "../../../../components/PortfolioContext";
 import { formatMc, formatTokenAmount, formatUsdMoney, prettySymbol } from "../../../../lib/format";
 import { readRouteParam, truncateAddress } from "../../../../lib/solana";
@@ -82,8 +85,7 @@ const THEME_OPTIONS: {
     ];
 
 const EMPTY_SNAPSHOT = {
-    username: "Unipcs",
-    handle: "@unipcs",
+    verified: false,
     token: "No position",
     symbol: "",
     address: "—",
@@ -100,6 +102,8 @@ const EMPTY_SNAPSHOT = {
 
 export default function SnapshotScreen() {
     const router = useRouter();
+  const backgroundScroll = useBackgroundScroll();
+    const { prefs } = useSettings();
     const { mint: rawMint } = useLocalSearchParams<{ mint?: string | string[] }>();
     const mint = readRouteParam(rawMint);
     const { positions, trades, positionFor } = usePortfolio();
@@ -112,6 +116,7 @@ export default function SnapshotScreen() {
         ? {
             ...EMPTY_SNAPSHOT,
             token: holding.name,
+            verified: holding.verified === true,
             symbol: prettySymbol(holding.symbol),
             address: truncateAddress(holding.mint),
             rewards24h: formatUsdMoney(pnl24h),
@@ -198,7 +203,7 @@ export default function SnapshotScreen() {
                 />
             </View>
 
-            <ScrollView
+            <ScrollView {...backgroundScroll} scrollEventThrottle={32}
                 contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
             >
@@ -246,9 +251,7 @@ export default function SnapshotScreen() {
                     >
                         <View style={styles.profileRow}>
                             <View style={styles.avatar}>
-                                <Text style={styles.avatarText}>
-                                    👨🏻‍💻
-                                </Text>
+                                <UserAvatar style={styles.avatarImage} />
                             </View>
 
                             <View style={styles.profileInfo}>
@@ -259,7 +262,7 @@ export default function SnapshotScreen() {
                                             { color: theme.text },
                                         ]}
                                     >
-                                        {snapshot.username}
+                                        {prefs.name}
                                     </Text>
                                     <BadgeCheck
                                         size={20}
@@ -272,7 +275,7 @@ export default function SnapshotScreen() {
                                         { color: theme.text },
                                     ]}
                                 >
-                                    {snapshot.handle}
+                                    {prefs.username}
                                 </Text>
                             </View>
 
@@ -328,7 +331,7 @@ export default function SnapshotScreen() {
                                         >
                                             • {snapshot.symbol}
                                         </Text>
-                                        <View style={styles.official}>
+                                        {snapshot.verified === true && <View style={styles.official}>
                                             <BadgeCheck
                                                 size={12}
                                                 color={COLORS.stonkDarkG}
@@ -336,7 +339,7 @@ export default function SnapshotScreen() {
                                             <Text style={styles.officialText}>
                                                 Official
                                             </Text>
-                                        </View>
+                                        </View>}
                                     </View>
 
                                     <Text
@@ -482,9 +485,7 @@ export default function SnapshotScreen() {
                     <GlassButton
                         icon={
                             sharing ? (
-                                <ActivityIndicator
-                                    color={COLORS.white}
-                                />
+                                <SkeletonGroup label="Preparing snapshot"><Skeleton width={22} height={22} /></SkeletonGroup>
                             ) : (
                                 <Send
                                     size={20}
@@ -506,7 +507,7 @@ export default function SnapshotScreen() {
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#090A08",
+        backgroundColor: "transparent",
     },
     back: {
         position: "absolute",
@@ -570,8 +571,10 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    avatarText: {
-        fontSize: 28,
+    avatarImage: {
+        width: 54,
+        height: 54,
+        borderRadius: 27,
     },
     profileInfo: {
         flex: 1,

@@ -1,0 +1,25 @@
+{
+  "cli": {
+    "version": ">= 27.2.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "uat": {
+      "distribution": "internal",
+      "environment": "preview",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "ios-simulator": {
+      "extends": "uat",
+      "ios": {
+        "simulator": true
+      }
+    },
+    "production": {
+      "distribution": "store",
+      "environment": "production"
+    }
+  }
+}

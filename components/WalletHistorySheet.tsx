@@ -1,3 +1,4 @@
+import { useBackgroundScroll } from "./AppBackground";
 
 import React, { useEffect, useRef } from "react";
 import {
@@ -36,6 +37,7 @@ type Transaction = {
     amount: string;
     detail: string;
     imageUrl?: string | null;
+    verified?: boolean;
     positive: boolean;
 };
 
@@ -129,11 +131,11 @@ function TransactionRow({
                         {transaction.name}
                     </Text>
 
-                    <BadgeCheck
+                    {transaction.verified === true && <BadgeCheck
                         size={15}
                         color={COLORS.stonkGreen}
                         strokeWidth={2.2}
-                    />
+                    />}
                 </View>
 
                 <Text
@@ -172,6 +174,7 @@ export default function WalletHistorySheet({
     visible,
     onClose,
 }: Props) {
+  const backgroundScroll = useBackgroundScroll();
     const { trades } = usePortfolio();
     const transactions: Transaction[] = trades.map((trade) => ({
         id: trade.id,
@@ -182,6 +185,7 @@ export default function WalletHistorySheet({
         amount: `${trade.mode === "sell" ? "+" : "-"}${formatUsdMoney(trade.usd)}`,
         detail: `${formatTokenAmount(trade.tokens)} ${prettySymbol(trade.symbol)}`,
         imageUrl: trade.imageUrl,
+        verified: trade.verified === true,
         positive: trade.mode === "sell",
     }));
     const translateY = useRef(
@@ -345,7 +349,7 @@ export default function WalletHistorySheet({
                     </Text>
 
                     {/* TRANSACTION LIST */}
-                    <ScrollView
+                    <ScrollView {...backgroundScroll} scrollEventThrottle={32}
                         showsVerticalScrollIndicator={false}
                         bounces={false}
                         contentContainerStyle={styles.list}

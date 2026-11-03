@@ -1,6 +1,8 @@
+import { useBackgroundScroll } from "../../../components/AppBackground";
+import TokenCardPressable from "../../../components/TokenCardPressable";
+import { SkeletonRows } from "../../../components/Skeleton";
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,13 +22,14 @@ type Period = "24 Hours" | "1 Week";
 
 export default function Top10VolumeScreen() {
   const router = useRouter();
+  const backgroundScroll = useBackgroundScroll();
   const [period, setPeriod] = useState<Period>("24 Hours");
   const window: VolumeLeaderWindow = period === "1 Week" ? "1w" : "24h";
   const { data: rankedTokens, loading } = useVolumeLeaders(window);
 
   return (
     <View style={styles.screen}>
-      <ScrollView
+      <ScrollView {...backgroundScroll} scrollEventThrottle={32}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
@@ -62,10 +65,10 @@ export default function Top10VolumeScreen() {
 
         <View style={styles.list}>
           {loading && !(rankedTokens?.length) ? (
-            <ActivityIndicator color="#C6E900" style={{ marginVertical: 24 }} />
+            <SkeletonRows count={6} />
           ) : null}
           {(rankedTokens ?? []).map((token, index) => (
-              <Pressable
+              <TokenCardPressable
                 key={token.mint}
                 style={styles.tokenRow}
                 onPress={() =>
@@ -90,7 +93,7 @@ export default function Top10VolumeScreen() {
                   </Text>
                   <Text style={styles.subText}>♧ {formatCount(token.newHolders)}</Text>
                 </View>
-              </Pressable>
+              </TokenCardPressable>
             ))}
         </View>
       </ScrollView>
@@ -99,7 +102,7 @@ export default function Top10VolumeScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#10110B" },
+  screen: { flex: 1, backgroundColor: "transparent" },
   content: { paddingHorizontal: 18, paddingTop: 54, paddingBottom: 145 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
   backButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#303030", alignItems: "center", justifyContent: "center" },

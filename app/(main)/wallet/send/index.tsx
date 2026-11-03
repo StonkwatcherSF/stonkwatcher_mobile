@@ -1,3 +1,4 @@
+import { useBackgroundScroll } from "../../../../components/AppBackground";
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -59,6 +60,7 @@ function VerifiedName({ name }: { name: string }) {
 }
 
 export default function SendScreen() {
+  const backgroundScroll = useBackgroundScroll();
   const router = useRouter();
   const [stage, setStage] = useState<Stage>('recipient');
   const [query, setQuery] = useState('');
@@ -218,7 +220,7 @@ export default function SendScreen() {
                   onChangeText={setQuery}
                 />
               </View>
-              <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 240 }}>
+              <ScrollView {...backgroundScroll} scrollEventThrottle={32} keyboardShouldPersistTaps="handled" style={{ maxHeight: 240 }}>
                 {matches.map(u => (
                   <Pressable
                     key={u.handle}

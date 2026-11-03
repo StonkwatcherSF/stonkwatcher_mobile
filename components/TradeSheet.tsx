@@ -1,3 +1,5 @@
+import { useBackgroundScroll } from "./AppBackground";
+import { SkeletonRows } from "./Skeleton";
 import * as Haptics from "expo-haptics";
 import React, { useRef, useState, useEffect, } from "react";
 import {
@@ -36,6 +38,7 @@ type Props = {
     tokenName?: string;
     symbol?: string;
     imageUrl?: string | null;
+    verified?: boolean;
     priceUsd?: number | null;
     marketCapUsd?: number | null;
     onClose?: () => void;
@@ -66,15 +69,18 @@ export default function TradeSheet({
     tokenName: tokenNameProp,
     symbol: symbolProp,
     imageUrl,
+    verified: verifiedProp,
     priceUsd,
     marketCapUsd,
     onClose,
     onTradeConfirmed,
 }: Props) {
     const router = useRouter();
+  const backgroundScroll = useBackgroundScroll();
     const { cash, buy, sell, positionFor } = usePortfolio();
     const mint = isSolanaAddress(tokenId) ? tokenId : "";
-    const { data: detail } = useTokenMarket(mint || undefined);
+    const { data: detail, loading: detailLoading } = useTokenMarket(mint || undefined);
+    const tokenVerified = detail?.token?.verified ?? verifiedProp ?? false;
     const holding = mint ? positionFor(mint) : undefined;
     const handleClose = () => {
         if (onClose) {
@@ -227,6 +233,7 @@ export default function TradeSheet({
             name: tokenName,
             symbol,
             imageUrl: logo,
+            verified: tokenVerified === true,
             amountUsd: numericAmount,
             priceUsd: livePrice,
             marketCapUsd: liveMcap,
@@ -379,12 +386,12 @@ export default function TradeSheet({
                     <View style={styles.handle} />
                 </View>
 
-                <ScrollView
+                <ScrollView {...backgroundScroll} scrollEventThrottle={32}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="always"
                     contentContainerStyle={styles.content}
                 >
-                    <View style={styles.header}>
+                    {detailLoading && !detail && !tokenNameProp ? <SkeletonRows count={1} /> : <View style={styles.header}>
                         <View style={styles.tokenIcon}>
                             <TokenImage uri={logo} mint={mint || tokenId} style={styles.tokenIconImage} />
                         </View>
@@ -397,10 +404,10 @@ export default function TradeSheet({
                                 >
                                     {tokenName}
                                 </Text>
-                                <BadgeCheck
+                                {tokenVerified === true && <BadgeCheck
                                     size={17}
                                     color={COLORS.stonkGreen}
-                                />
+                                />}
                             </View>
 
                             <Text style={styles.marketCap}>
@@ -418,7 +425,7 @@ export default function TradeSheet({
                         </View>
 
 
-                    </View>
+                    </View>}
 
                     <View style={styles.amountSection}>
                         <Text

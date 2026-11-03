@@ -8,7 +8,6 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
@@ -23,7 +22,6 @@ import { useNavScroll } from "../../../components/NavAnimationContext";
 import {
   COLORS,
   FONTS,
-  GRADIENTS,
 } from "../../../constants/theme";
 import WalletProfile from "../../../components/WalletProfile";
 import GlassButton from "../../../components/GlassButton";
@@ -99,10 +97,10 @@ function FeeShareDashboard({
             <Text style={styles.tokenSymbol}>{symbol}</Text>
 
             <View style={styles.officialBadge}>
-              <BadgeCheck
+              {position.verified === true && <BadgeCheck
                 size={13}
                 color={COLORS.stonkLightG}
-              />
+              />}
               <Text style={styles.officialText}>
                 Demo
               </Text>
@@ -201,6 +199,12 @@ export default function RewardsCalendar() {
     ),
   ];
 
+  // Complete each week so every row has the same seven equal columns.
+  while (cells.length % 7 !== 0) cells.push(null);
+  const weeks = Array.from({ length: cells.length / 7 }, (_, index) =>
+    cells.slice(index * 7, index * 7 + 7)
+  );
+
   function changeMonth(direction: number) {
     setMonth(
       new Date(
@@ -211,17 +215,12 @@ export default function RewardsCalendar() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient
-        colors={GRADIENTS.tokens}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
 
       <ScrollView
         onScroll={navScroll.onScroll}
         onScrollBeginDrag={navScroll.onScrollBeginDrag}
         onScrollEndDrag={navScroll.onScrollEndDrag}
+        onMomentumScrollEnd={navScroll.onMomentumScrollEnd}
         scrollEventThrottle={16}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -334,44 +333,48 @@ export default function RewardsCalendar() {
             </View>
 
             <View style={styles.calendarGrid}>
-              {cells.map((day, index) => {
-                const pnl =
-                  day !== null ? pnlByDay[day] : undefined;
+              {weeks.map((week, weekIndex) => (
+                <View key={weekIndex} style={styles.calendarWeek}>
+                  {week.map((day, index) => {
+                    const pnl =
+                      day !== null ? pnlByDay[day] : undefined;
 
-                return (
-                  <View
-                    key={index}
-                    style={styles.daySlot}
-                  >
-                    {day !== null && (
+                    return (
                       <View
-                        style={[
-                          styles.dayCell,
-                          pnl
-                            ? pnl > 0
-                              ? styles.profitableDay
-                              : styles.lossDay
-                            : styles.emptyDay,
-                        ]}
+                        key={index}
+                        style={styles.daySlot}
                       >
-                        <Text style={styles.dayNumber}>
-                          {day}
-                        </Text>
-
-                        {pnl ? (
-                          <Text
-                            style={styles.dayProfit}
-                            numberOfLines={1}
-                            adjustsFontSizeToFit
+                        {day !== null && (
+                          <View
+                            style={[
+                              styles.dayCell,
+                              pnl
+                                ? pnl > 0
+                                  ? styles.profitableDay
+                                  : styles.lossDay
+                                : styles.emptyDay,
+                            ]}
                           >
-                            {formatSignedUsd(pnl)}
-                          </Text>
-                        ) : null}
+                            <Text style={styles.dayNumber}>
+                              {day}
+                            </Text>
+
+                            {pnl ? (
+                              <Text
+                                style={styles.dayProfit}
+                                numberOfLines={1}
+                                adjustsFontSizeToFit
+                              >
+                                {formatSignedUsd(pnl)}
+                              </Text>
+                            ) : null}
+                          </View>
+                        )}
                       </View>
-                    )}
-                  </View>
-                );
-              })}
+                    );
+                  })}
+                </View>
+              ))}
             </View>
           </>
         ) : (
@@ -428,7 +431,7 @@ export default function RewardsCalendar() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: COLORS.black,
+    backgroundColor: "transparent",
   },
 
   content: {
@@ -519,7 +522,7 @@ const styles = StyleSheet.create({
   },
 
   weekday: {
-    width: `${100 / 7}%`,
+    flex: 1,
     textAlign: "center",
     fontFamily: FONTS.regular,
     color: COLORS.white,
@@ -527,14 +530,16 @@ const styles = StyleSheet.create({
   },
 
   calendarGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginHorizontal: -2,
     marginBottom: 24,
   },
 
+  calendarWeek: {
+    flexDirection: "row",
+  },
+
   daySlot: {
-    width: `${100 / 7}%`,
+    flex: 1,
+    minWidth: 0,
     padding: 2,
   },
 

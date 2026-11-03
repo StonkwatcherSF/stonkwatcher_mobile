@@ -13,6 +13,7 @@ export type QuoteCatalog = {
 };
 
 export type StonkFunToken = {
+  verified?: boolean;
   mint: string;
   address?: string;
   id?: string;

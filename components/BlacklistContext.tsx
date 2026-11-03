@@ -4,6 +4,8 @@ import { BLACKLIST_KEY } from "../lib/config";
 import { fetchTokenCreator } from "../lib/stonk";
 
 export type BlacklistKind = "Wallet" | "Token";
+export type BlacklistEntry = { id: string; address: string; kind: BlacklistKind; reasons: string[]; name?: string; imageUrl?: string; addedAt: number };
+type Store = { entries: BlacklistEntry[]; addEntry: (entry: Omit<BlacklistEntry, "id" | "addedAt">) => boolean; removeEntry: (id: string) => void };
 export type BlacklistEntry = {
   id: string;
   address: string;

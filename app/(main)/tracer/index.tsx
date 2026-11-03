@@ -1,3 +1,5 @@
+import TokenCardPressable from "../../../components/TokenCardPressable";
+import { SkeletonRows } from "../../../components/Skeleton";
 
 import React, { useState } from "react";
 import {
@@ -8,7 +10,6 @@ import {
   Pressable,
   StyleSheet,
   Alert,
-  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { List } from "lucide-react-native";
@@ -69,6 +70,7 @@ export default function TracerScreen() {
         onScroll={navScroll.onScroll}
         onScrollBeginDrag={navScroll.onScrollBeginDrag}
         onScrollEndDrag={navScroll.onScrollEndDrag}
+        onMomentumScrollEnd={navScroll.onMomentumScrollEnd}
         scrollEventThrottle={16}
       >
         <Text style={styles.title}>Tracer</Text>
@@ -154,10 +156,10 @@ export default function TracerScreen() {
 
         <View style={styles.list}>
           {volumeLoading && !preview.length ? (
-            <ActivityIndicator color="#C6E900" style={{ marginVertical: 18 }} />
+            <SkeletonRows count={3} />
           ) : null}
           {preview.map((token, index) => (
-            <Pressable
+            <TokenCardPressable
               key={token.mint}
               style={styles.tokenRow}
               onPress={() => openTrace(token.mint)}
@@ -195,7 +197,7 @@ export default function TracerScreen() {
                   ♧ {formatCount(token.newHolders)}
                 </Text>
               </View>
-            </Pressable>
+            </TokenCardPressable>
           ))}
         </View>
 
@@ -210,10 +212,10 @@ export default function TracerScreen() {
 
         <View style={styles.list}>
           {launchesLoading && !newTokens.length ? (
-            <ActivityIndicator color="#C6E900" style={{ marginVertical: 18 }} />
+            <SkeletonRows count={3} />
           ) : null}
           {newTokens.map((token) => (
-            <Pressable
+            <TokenCardPressable
               key={token.mint}
               style={styles.tokenRow}
               onPress={() => openTrace(token.mint)}
@@ -245,7 +247,7 @@ export default function TracerScreen() {
                   {formatMc(token.market?.marketCapUsd)}
                 </Text>
               </View>
-            </Pressable>
+            </TokenCardPressable>
           ))}
         </View>
       </ScrollView>
@@ -256,7 +258,7 @@ export default function TracerScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#10110B",
+    backgroundColor: "transparent",
   },
 
   content: {
