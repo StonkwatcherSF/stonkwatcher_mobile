@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "xyz.stonkwatcher.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#14203D",
         "foregroundImage": "./assets/icon.png"
@@ -53,6 +53,13 @@
         "projectId": "0b41ca44-51dc-423a-b76d-dbefa913e5cf"
       }
     },
-    "owner": "anony-dev"
+    "owner": "anony-dev",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/0b41ca44-51dc-423a-b76d-dbefa913e5cf",
+      "checkAutomatically": "NEVER"
+    }
   }
 }

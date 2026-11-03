@@ -28,7 +28,7 @@ function chunksFor(text: string) {
   return Array.from({ length: Math.ceil(words.length / group) }, (_, i) => words.slice(i * group, (i + 1) * group).join(""));
 }
 
-export const RevealChunk = memo(function RevealChunk({ text, clock, start }: { text: string; clock: SharedValue<number>; start: number }) {
+export const RevealChunk = memo(function RevealChunk({ text, clock, start, glowColor }: { text: string; clock: SharedValue<number>; start: number; glowColor?: string }) {
   const animation = useAnimatedStyle(() => {
     const progress = Math.max(0, Math.min(1, (clock.value - start) / REVEAL_TIME));
     return {
@@ -36,7 +36,7 @@ export const RevealChunk = memo(function RevealChunk({ text, clock, start }: { t
       textShadowRadius: progress > 0 && progress < 1 ? 10 * Math.sin(progress * Math.PI) : 0,
     };
   });
-  return <Animated.Text style={[styles.word, animation]}>{text}</Animated.Text>;
+  return <Animated.Text style={[styles.word, glowColor ? { textShadowColor: glowColor } : undefined, animation]}>{text}</Animated.Text>;
 });
 
 function RevealText({ text, clock, start }: { text: string; clock: SharedValue<number>; start: number }) {
@@ -48,7 +48,7 @@ function RevealText({ text, clock, start }: { text: string; clock: SharedValue<n
   );
 }
 
-export const Glow = memo(function Glow({ clock, end, variant }: { clock: SharedValue<number>; end: number; variant: number }) {
+export const Glow = memo(function Glow({ clock, end, variant, tint }: { clock: SharedValue<number>; end: number; variant: number; tint?: string }) {
   const animation = useAnimatedStyle(() => {
     const time = clock.value / 1000;
     const angle = time * 0.9 + variant * 2.1;
@@ -61,7 +61,7 @@ export const Glow = memo(function Glow({ clock, end, variant }: { clock: SharedV
       ],
     };
   });
-  const color = ["#C6E900", "#46DE67", "#8DCB16"][variant];
+  const color = tint ?? ["#C6E900", "#46DE67", "#8DCB16"][variant];
   return (
     <Animated.View style={[styles.glow, variant === 1 ? styles.glowRight : styles.glowLeft, animation]}>
       <Svg width="100%" height="100%" viewBox="0 0 320 240">

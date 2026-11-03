@@ -1,3 +1,4 @@
+import AppUpdates from "../components/AppUpdates";
 import { AppBackgroundProvider } from "../components/AppBackground";
 import { SkeletonPage } from "../components/Skeleton";
 
@@ -42,6 +43,7 @@ function RootContent() {
   return (
     <AuthProvider>
       <StatusBar style="light" />
+      <AppUpdates />
 
       <Stack
         screenOptions={{

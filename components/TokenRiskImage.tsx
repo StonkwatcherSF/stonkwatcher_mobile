@@ -1,3 +1,4 @@
+import { riskBrand } from "../lib/risk-brand";
 import React, { memo, useCallback, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useFocusEffect } from "expo-router";
@@ -41,7 +42,7 @@ function TokenRiskImage({ uri, mint, style }: Props) {
     return subscribeTokenRisk(mint, update);
   }, [mint]));
   const score = result && result.mint === mint ? result.score : mint ? readTokenRisk(mint) : null;
-  const color = score == null || score <= 25 ? "#BBDC12" : score <= 50 ? "#D8BD00" : score <= 75 ? "#F1A33A" : "#FF584C";
+  const { color } = riskBrand(score);
   return (
     <View style={[style, styles.frame]}>
       <TokenImage uri={uri} mint={mint} style={[styles.image, { borderRadius: StyleSheet.flatten(style)?.borderRadius }]} />

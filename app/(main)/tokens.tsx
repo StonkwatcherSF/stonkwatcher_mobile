@@ -191,7 +191,6 @@ export default function TokensScreen() {
           scrollEventThrottle={16}
           style={styles.tokenList}
           contentContainerStyle={{
-            paddingHorizontal: 10,
             paddingBottom: 115,
           }}
           showsVerticalScrollIndicator={false}

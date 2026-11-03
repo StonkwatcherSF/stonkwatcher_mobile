@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Pressable, StyleSheet, useWindowDimensions, PanResponder } from "react-native";
+import { View, Pressable, StyleSheet, useWindowDimensions, PanResponder, Platform } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useRouter, usePathname } from "expo-router";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -43,6 +44,10 @@ export default function BottomNav() {
   const wholeNavStyle = useAnimatedStyle(() => ({ transform: [{ scale: scrollScale.value * tapScale.value }] }));
   const indicatorStyle = useAnimatedStyle(() => ({ transform: [{ translateX: indicatorX.value }], opacity: withTiming(selectedIndex === 4 ? 0 : 1, { duration: 170 }) }));
   const navigate = useCallback((index: number) => {
+    void (Platform.OS === "android"
+      ? Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Context_Click)
+      : Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    ).catch(() => undefined);
     compact.value = 0;
     tapScale.value = withSequence(withTiming(0.97, { duration: 75 }), withSpring(1.02, { damping: 16, stiffness: 240, mass: 0.7 }), withTiming(1, { duration: 120 }));
     setSelectedIndex(index);

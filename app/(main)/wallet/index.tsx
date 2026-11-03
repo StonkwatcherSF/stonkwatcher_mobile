@@ -1,3 +1,4 @@
+import { sortWalletHoldings } from "../../../lib/wallet-sort";
 import PortfolioChart from "../../../components/PortfolioChart";
 import { equityRange } from "../../../lib/portfolio-equity";
 import TokenCardPressable from "../../../components/TokenCardPressable";
@@ -57,6 +58,7 @@ type Holding = {
   quantity: string;
   value: string;
   valueUsd: number;
+  pnlUsd: number;
   change: number;
   imageUrl?: string | null;
   verified?: boolean;
@@ -75,6 +77,7 @@ function fromOpenPosition(position: MockPosition): Holding {
     quantity: formatTokenAmount(position.tokens),
     value: formatUsdMoney(stats.value),
     valueUsd: stats.value,
+    pnlUsd: stats.pnl,
     change: stats.pct,
     imageUrl: position.imageUrl,
     verified: position.verified === true,
@@ -91,6 +94,7 @@ function fromClosedPosition(position: MockClosedPosition): Holding {
     quantity: formatTokenAmount(position.tokens),
     value: formatUsdMoney(Math.abs(position.pnlUsd)),
     valueUsd: Math.abs(position.pnlUsd),
+    pnlUsd: position.pnlUsd,
     change: position.pnlPct,
     imageUrl: position.imageUrl,
     verified: position.verified === true,
@@ -306,19 +310,7 @@ export default function WalletScreen() {
     const selectedHoldings =
       positionTab === "open" ? holdings : closedHoldings;
 
-    return [...selectedHoldings].sort((a, b) => {
-      if (sortOrder === "recent") {
-        return (
-          new Date(b.date).getTime() -
-          new Date(a.date).getTime()
-        );
-      }
-
-      return (
-        b.change - a.change ||
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
-    });
+    return sortWalletHoldings(selectedHoldings, sortOrder);
   }, [sortOrder, positionTab, holdings, closedHoldings]);
   const maxPositionValue = Math.max(1, ...sortedHoldings.map((row) => row.valueUsd));
 
