@@ -26,7 +26,7 @@ import {
 import WalletProfile from "../../../components/WalletProfile";
 import GlassButton from "../../../components/GlassButton";
 import WalletHistorySheet from "../../../components/WalletHistorySheet";
-import TokenImage from "../../../components/TokenImage";
+import TokenImage from "../../../components/TokenRiskImage";
 import {
   mintPnl,
   monthPnlByDay,

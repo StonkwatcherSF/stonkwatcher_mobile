@@ -257,12 +257,12 @@ export function queueAnalyze(mint: string) {
 const BUBBLE_TTL_MS = 60_000;
 const bubbleCache = new Map<string, { at: number; body: BubbleMapResponse }>();
 
-export async function fetchBubbleMap(mint: string) {
+export async function fetchBubbleMap(mint: string, signal?: AbortSignal) {
   const cached = bubbleCache.get(mint);
   if (cached && Date.now() - cached.at < BUBBLE_TTL_MS && (cached.body.bubbleMap?.nodes?.length ?? 0) > 0) {
     return cached.body;
   }
-  const body = await apiGet<BubbleMapResponse>(`/api/tokens/${encodeURIComponent(mint)}/bubble-v2`);
+  const body = await apiGet<BubbleMapResponse>(`/api/tokens/${encodeURIComponent(mint)}/bubble-v2`, undefined, signal);
   const raw = body.bubbleMap;
   const bubbleMap = raw
     ? {

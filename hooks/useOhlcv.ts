@@ -1,5 +1,6 @@
+import { useEffect, useRef } from "react";
 import { fetchOhlcv } from "../lib/stonk";
-import { applyLiveClose, ohlcvStep } from "../lib/public-data";
+import { applyLiveClose, ohlcvStep, readCachedOhlcv } from "../lib/public-data";
 import type { OhlcvCandle } from "../lib/types";
 import { isSolanaAddress } from "../lib/solana";
 import { useAsync } from "./useAsync";
@@ -29,13 +30,23 @@ export function useOhlcv(mint: string | undefined, period: ChartPeriod, spotUsd?
   const tf = PERIOD_TF[period];
   const step = PERIOD_STEP[period] || ohlcvStep(tf);
   const hasSpot = Boolean(spotUsd && spotUsd > 0);
-  return useAsync<OhlcvCandle[]>(
+  const spotRef = useRef(spotUsd);
+  useEffect(() => { spotRef.current = spotUsd; }, [spotUsd]);
+  const key = `${mint}:${tf}`;
+  const result = useAsync<{ key: string; candles: OhlcvCandle[] }>(
     async () => {
-      const body = await fetchOhlcv(mint!, tf, spotUsd);
-      return applyLiveClose(body.candles ?? [], spotUsd, step);
+      const body = await fetchOhlcv(mint!, tf, spotRef.current);
+      return { key, candles: body.candles ?? [] };
     },
     [mint, tf, step, hasSpot],
     valid,
     10_000,
   );
+  const current = result.data?.key === key;
+  const candles = valid ? (current ? result.data!.candles : readCachedOhlcv(mint!, tf)) : null;
+  return {
+    data: candles ? applyLiveClose(candles, spotUsd, step) : null,
+    loading: valid && !candles && (result.loading || (!current && !result.error)),
+    error: current || !result.loading ? result.error : null,
+  };
 }

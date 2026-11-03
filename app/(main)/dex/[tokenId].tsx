@@ -12,7 +12,7 @@ import TradeSheet from "../../../components/TradeSheet";
 import TradeConfirmation from "../../../components/TradeConfirmation";
 import type { WarpTarget } from "../../../components/ConfirmationWarp";
 import DexPositionReveal, { PositionRevealText } from "../../../components/DexPositionReveal";
-import TokenImage from "../../../components/TokenImage";
+import TokenImage from "../../../components/TokenRiskImage";
 import UserAvatar from "../../../components/UserAvatar";
 import PriceChart from "../../../components/PriceChart";
 import GlassButton from "../../../components/GlassButton";

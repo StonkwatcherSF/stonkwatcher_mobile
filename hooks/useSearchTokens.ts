@@ -37,13 +37,8 @@ export async function searchTokens(query: string) {
 
 export function useSearchTokens(query: string) {
   const q = query.trim();
-  return useAsync<StonkFunToken[]>(
-    () => searchTokens(q),
   const result = useAsync<StonkFunToken[]>(
-    async () => {
-      const page = await fetchTokens({ q, raw: true, fast: true, pageSize: 20, sort: "volume" });
-      return (page.tokens ?? []).filter((token) => tokenMint(token));
-    },
+    () => searchTokens(q),
     [q],
     q.length > 0,
   );

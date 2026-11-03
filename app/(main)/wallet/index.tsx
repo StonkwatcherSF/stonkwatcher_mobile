@@ -1,8 +1,10 @@
+import PortfolioChart from "../../../components/PortfolioChart";
+import { equityRange } from "../../../lib/portfolio-equity";
 import TokenCardPressable from "../../../components/TokenCardPressable";
 import ConfirmationCelebration from "../../../components/ConfirmationCelebration";
 import AnimatedAmount from "../../../components/AnimatedAmount";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -12,15 +14,8 @@ import {
   Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, {
-  Path,
-  Circle,
-  Defs,
-  LinearGradient as SvgGradient,
-  Stop,
-} from "react-native-svg";
 import {
   CalendarDays,
   Plus,
@@ -39,7 +34,7 @@ import GlassButton from "../../../components/GlassButton";
 import WalletProfile from "../../../components/WalletProfile";
 import WalletMoreSheet from "../../../components/WalletMoreSheet";
 import WalletHistorySheet from "../../../components/WalletHistorySheet";
-import TokenImage from "../../../components/TokenImage";
+import TokenImage from "../../../components/TokenRiskImage";
 import { useNavScroll } from "../../../components/NavAnimationContext";
 import { usePortfolio, positionPnl, type MockClosedPosition, type MockPosition } from "../../../components/PortfolioContext";
 import { formatTokenAmount, formatUsdMoney, prettySymbol } from "../../../lib/format";
@@ -106,82 +101,6 @@ function fromClosedPosition(position: MockClosedPosition): Holding {
 // =====================================================
 // CHART COMPONENT
 // =====================================================
-
-function PortfolioChart() {
-  const chartHeight = 240;
-
-  return (
-    <Svg
-      width="100%"
-      height={chartHeight}
-      viewBox="0 0 340 220"
-      preserveAspectRatio="none"
-    >
-      <Defs>
-        <SvgGradient
-          id="portfolioFill"
-          x1="0"
-          y1="0"
-          x2="0"
-          y2="1"
-        >
-          <Stop
-            offset="0%"
-            stopColor="#00D492"
-            stopOpacity="0.35"
-          />
-          <Stop
-            offset="100%"
-            stopColor="#00D492"
-            stopOpacity="0.02"
-          />
-        </SvgGradient>
-      </Defs>
-
-      <Path
-        d="
-          M 8 170
-          C 40 110, 60 90, 88 135
-          S 125 185, 150 135
-          S 215 5, 260 75
-          S 300 160, 332 70
-          L 332 220
-          L 8 220
-          Z
-        "
-        fill="url(#portfolioFill)"
-      />
-
-      <Path
-        d="
-          M 8 170
-          C 40 110, 60 90, 88 135
-          S 125 185, 150 135
-          S 215 5, 260 75
-          S 300 160, 332 70
-        "
-        stroke={COLORS.buy}
-        strokeWidth={2.5}
-        fill="none"
-        strokeLinecap="round"
-      />
-
-      <Circle
-        cx={332}
-        cy={70}
-        r={10}
-        fill="rgba(0,212,146,0.25)"
-      />
-
-      <Circle
-        cx={332}
-        cy={70}
-        r={5}
-        fill={COLORS.buy}
-      />
-    </Svg>
-  );
-}
 
 // =====================================================
 // TOKEN POSITION CARD
@@ -369,18 +288,19 @@ export default function WalletScreen() {
 
   const [sortOrder, setSortOrder] =
     useState<SortOrder>("recent");
-  const { cash, positions, closed } = usePortfolio();
+  const { cash, positions, closed, equityHistory, historyReady } = usePortfolio();
   const holdings = useMemo(() => positions.map(fromOpenPosition), [positions]);
   const closedHoldings = useMemo(() => closed.map(fromClosedPosition), [closed]);
   const holdingsValue = useMemo(
     () => holdings.reduce((sum, row) => sum + row.valueUsd, 0),
     [holdings],
   );
-  const openPnl = useMemo(
-    () => positions.reduce((sum, row) => sum + positionPnl(row).pnl, 0),
-    [positions],
-  );
   const portfolioTotal = cash + holdingsValue;
+  const [chartNow, setChartNow] = useState(Date.now);
+  useFocusEffect(useCallback(() => { setChartNow(Date.now()); }, []));
+  const observedAt = Math.max(chartNow, equityHistory.at(-1)?.time ?? chartNow);
+  const range = useMemo(() => equityRange(equityHistory, portfolioTotal, period, observedAt), [equityHistory, portfolioTotal, period, observedAt]);
+  const periodChange = range.change;
 
   const sortedHoldings = useMemo(() => {
     const selectedHoldings =
@@ -435,9 +355,9 @@ export default function WalletScreen() {
               </Text>
 
               <View style={styles.pnlRow}>
-                <Text style={[styles.pnlPositive, openPnl < 0 && { color: COLORS.sell }]}>
-                  {openPnl >= 0 ? "+" : ""}
-                  {formatUsdMoney(openPnl).replace("$-", "-$")}
+                <Text style={[styles.pnlPositive, periodChange < 0 && { color: COLORS.sell }]}>
+                  {periodChange >= 0 ? "+" : ""}
+                  {formatUsdMoney(periodChange).replace("$-", "-$")}
                 </Text>
 
                 <Text style={styles.pnlPeriod}>
@@ -450,7 +370,7 @@ export default function WalletScreen() {
               {PERIODS.map((item) => (
                 <Pressable
                   key={item}
-                  onPress={() => setPeriod(item)}
+                  onPress={() => { setChartNow(Date.now()); setPeriod(item); }}
                   style={[
                     styles.periodButton,
                     period === item &&
@@ -471,7 +391,7 @@ export default function WalletScreen() {
             </View>
           </View>
 
-          <PortfolioChart />
+          <PortfolioChart points={range.points} ready={historyReady} />
 
           <View style={styles.chartFooter}>
             <View style={styles.walletValueRow}>

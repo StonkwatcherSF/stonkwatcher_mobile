@@ -19,7 +19,7 @@ import {
   FONTS,
 } from "../../constants/theme";
 import { useNavScroll } from "../../components/NavAnimationContext";
-import TokenImage from "../../components/TokenImage";
+import TokenImage from "../../components/TokenRiskImage";
 import { useRouter } from "expo-router";
 import { ALL_QUOTES, FALLBACK_QUOTES, type SelectedQuote } from "../../lib/config";
 import { formatMc, formatPrice, formatUsdMoney } from "../../lib/format";

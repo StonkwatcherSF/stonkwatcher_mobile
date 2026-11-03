@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
-import TokenImage from "../../../components/TokenImage";
+import TokenImage from "../../../components/TokenRiskImage";
 import { useVolumeLeaders } from "../../../hooks/useVolumeLeaders";
 import { compactUsd, formatCount, formatMc, prettySymbol } from "../../../lib/format";
 import { tracerHref } from "../../../lib/nav";

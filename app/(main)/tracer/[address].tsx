@@ -1,6 +1,7 @@
+import { publishTokenRisk } from "../../../lib/token-risk";
 import { useBackgroundScroll } from "../../../components/AppBackground";
 import { Skeleton, SkeletonGroup, SkeletonPage } from "../../../components/Skeleton";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -190,6 +191,9 @@ export default function TracerAnalysisScreen() {
     });
   }, [mapData, token]);
   const score = liveScore?.score ?? token?.brief.score ?? null;
+  useEffect(() => {
+    if (token?.mint && data) publishTokenRisk(token.mint, score ?? intel?.score ?? null);
+  }, [token?.mint, data, score, intel?.score]);
   const breakdown = liveScore?.breakdown ?? token?.brief.breakdown ?? [];
   const creatorNode = mapData?.nodes?.find((node) => node.isCreator);
   const supply = token?.supply ?? mapData?.summary?.supply ?? null;
@@ -380,32 +384,6 @@ export default function TracerAnalysisScreen() {
             ready={Boolean(data)}
             visible={analysisVisible}
           />
-        <View style={styles.riskCard}>
-          <View style={styles.riskRing}><View style={styles.riskRingInner} /></View>
-          <View style={styles.riskText}>
-            <Text style={styles.riskLabel}>Risk Score</Text>
-            <Text style={styles.riskValue}>
-              {score != null ? `${Math.round(score)} / 100` : analyzing ? "Scoring…" : "— / 100"}
-            </Text>
-          </View>
-          <Text style={styles.riskBadge}>{score != null ? riskLabel(score) : "Unscored"}</Text>
-        </View>
-
-        <View style={styles.analysisPanel}>
-          <View style={styles.iconHeading}><StonkIcon width={18} height={18} /><Text style={styles.limeHeading}>Analysis</Text></View>
-          <View style={styles.analysisBody}>
-            <Text style={styles.analysisDisclaimer}>This is a transparent behavioral index, not a determination that anyone is a rug-puller.</Text>
-            {signals.length ? signals.map((item, index) => (
-              <View key={`${item.score}-${index}`} style={styles.signalRow}>
-                <Text style={styles.signalScore}>{item.score}</Text>
-                <Text style={styles.signalText}>{item.message}</Text>
-              </View>
-            )) : (
-              <Text style={styles.signalText}>
-                {analyzing || bubbleLoading ? "Score appears after analysis finishes." : "No behavioral signals for this launch yet."}
-              </Text>
-            )}
-          </View>
         </View>
 
         {!isWallet ? (

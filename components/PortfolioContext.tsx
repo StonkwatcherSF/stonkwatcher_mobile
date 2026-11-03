@@ -1,5 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AppState } from "react-native";
+import { fetchPortfolioPrices } from "../lib/portfolio-market";
+import { usePortfolioHistory } from "../hooks/usePortfolioHistory";
+import type { EquityPoint } from "../lib/portfolio-equity";
 import { MOCK_PORTFOLIO_KEY, MOCK_STARTING_CASH, MOCK_TRADE_FEE } from "../lib/config";
 
 export type MockPosition = {
@@ -61,6 +65,8 @@ type ApplyResult = { state: PortfolioState } | { ok: false; error: string };
 
 type Store = PortfolioState & {
   ready: boolean;
+  equityHistory: EquityPoint[];
+  historyReady: boolean;
   buy: (input: MockTradeInput) => TradeResult;
   sell: (input: MockTradeInput) => TradeResult;
   positionFor: (mint: string) => MockPosition | undefined;
@@ -111,8 +117,10 @@ function parseState(raw: string | null): PortfolioState {
   }
 }
 
+let persistence = Promise.resolve();
 function persist(state: PortfolioState) {
-  return AsyncStorage.setItem(MOCK_PORTFOLIO_KEY, JSON.stringify(state)).catch(() => undefined);
+  persistence = persistence.then(() => AsyncStorage.setItem(MOCK_PORTFOLIO_KEY, JSON.stringify(state))).catch(() => undefined);
+  return persistence;
 }
 
 function applyBuy(state: PortfolioState, input: MockTradeInput): ApplyResult {
@@ -299,15 +307,62 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     return { ok: true };
   }, []);
 
+  const mintKey = state.positions.map((row) => row.mint).sort().join(",");
+  useEffect(() => {
+    if (!ready || !mintKey) return;
+    let canceled = false;
+    let busy = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let controller: AbortController | undefined;
+    async function refresh() {
+      if (canceled || busy || AppState.currentState !== "active") return;
+      busy = true;
+      controller = new AbortController();
+      const timeout = setTimeout(() => controller?.abort(), 6_000);
+      try {
+        const prices = await fetchPortfolioPrices(mintKey.split(","), controller.signal);
+        if (canceled || AppState.currentState !== "active") return;
+        // Apply to the latest state: a trade may complete while prices are loading.
+        const current = stateRef.current;
+        const positions = current.positions.map((position) => {
+          const price = prices.get(position.mint);
+          return price && price !== position.lastPriceUsd ? { ...position, lastPriceUsd: price } : position;
+        });
+        if (positions.some((position, i) => position !== current.positions[i])) {
+          const next = { ...current, positions };
+          stateRef.current = next;
+          setState(next);
+          void persist(next);
+        }
+      } finally {
+        clearTimeout(timeout);
+        busy = false;
+        if (!canceled && AppState.currentState === "active") timer = setTimeout(refresh, 10_000);
+      }
+    }
+    const subscription = AppState.addEventListener("change", (status) => {
+      clearTimeout(timer);
+      if (status === "active") void refresh();
+      else controller?.abort();
+    });
+    void refresh();
+    return () => { canceled = true; clearTimeout(timer); controller?.abort(); subscription.remove(); };
+  }, [mintKey, ready]);
+
+  const total = state.cash + state.positions.reduce((sum, position) => sum + positionValue(position), 0);
+  const { history: equityHistory, historyReady } = usePortfolioHistory(total, ready);
+
   const value = useMemo<Store>(
     () => ({
       ...state,
       ready,
+      equityHistory,
+      historyReady,
       buy,
       sell,
       positionFor: (mint: string) => state.positions.find((row) => row.mint === mint),
     }),
-    [state, ready, buy, sell],
+    [state, ready, buy, sell, equityHistory, historyReady],
   );
 
   return <Context.Provider value={value}>{children}</Context.Provider>;

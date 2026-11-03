@@ -14,7 +14,7 @@ import {
 import { useRouter } from "expo-router";
 import { List } from "lucide-react-native";
 import { useNavScroll } from "../../../components/NavAnimationContext";
-import TokenImage from "../../../components/TokenImage";
+import TokenImage from "../../../components/TokenRiskImage";
 import { useVolumeLeaders } from "../../../hooks/useVolumeLeaders";
 import { useNewLaunches } from "../../../hooks/useNewLaunches";
 import { compactUsd, formatAge, formatCount, formatMc, prettySymbol } from "../../../lib/format";
