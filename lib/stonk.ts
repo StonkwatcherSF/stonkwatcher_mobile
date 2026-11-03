@@ -165,16 +165,7 @@ async function publicTokenTrace(mint: string): Promise<TracerPayload> {
       holderCount: market?.holders ?? info?.rewards?.holders ?? null,
       score: null,
       breakdown: [],
-      signals: info
-        ? [
-            {
-              signalType: "holders",
-              severity: "info",
-              confidence: 1,
-              description: `Top 10 holders ${info.stats.top10Pct ?? "—"}% · Dev ${info.stats.devPct ?? "—"}% · Snipers ${info.stats.sniperPct ?? "—"}%.`,
-            },
-          ]
-        : [],
+      signals: [],
     },
   };
   return {

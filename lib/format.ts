@@ -99,7 +99,7 @@ export function riskLabel(score?: number | null) {
   if (score == null || !Number.isFinite(score)) return "Unscored";
   if (score >= 76) return "Critical Risk";
   if (score >= 51) return "High Risk";
-  if (score >= 26) return "Moderate";
+  if (score >= 26) return "Moderate Risk";
   return "Low Risk";
 }
 

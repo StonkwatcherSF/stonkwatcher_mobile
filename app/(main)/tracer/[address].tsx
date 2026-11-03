@@ -45,9 +45,10 @@ import {
   signedPoints,
 } from "../../../lib/format";
 import { dexHref } from "../../../lib/nav";
+import { scoreWithMapClusters } from "../../../lib/risk-score";
 import { isSolanaAddress, readRouteParam, truncateAddress } from "../../../lib/solana";
 import { shareExternally } from "../../../utils/share";
-import type { BubbleMapData, TracerPayload } from "../../../lib/types";
+import type { BubbleMapData, TracerPayload, TracerScoreRow } from "../../../lib/types";
 
 const LIME = "#C6E900";
 const BG = "#10110B";
@@ -109,19 +110,11 @@ function snapshotRows(payload: TracerPayload | null) {
   ];
 }
 
-function analysisRows(payload: TracerPayload | null, intel?: BubbleMapData["intel"]) {
-  const breakdown = payload?.token?.brief.breakdown ?? [];
+function analysisRows(breakdown: TracerScoreRow[], payload: TracerPayload | null) {
   if (breakdown.length) {
     return breakdown.map((row) => ({
       score: signedPoints(row.points),
       message: row.reason,
-    }));
-  }
-  const signals = payload?.token?.brief.signals ?? [];
-  if (signals.length) {
-    return signals.map((row) => ({
-      score: row.severity,
-      message: row.description,
     }));
   }
   if (payload?.mode === "wallet") {
@@ -134,20 +127,7 @@ function analysisRows(payload: TracerPayload | null, intel?: BubbleMapData["inte
       message: `${row.name || truncateAddress(row.mint)} launched ${formatAge(row.createdAt)}.`,
     }));
   }
-  const split = intel?.split;
-  if (split) {
-    return [
-      {
-        score: intel.score != null ? String(Math.round(intel.score)) : "v2",
-        message: `Holder map is ${intelScoreLabel(intel.scoreLabel, intel.score).toLowerCase()}. Top 10 ${formatPct(split.top10Pct)} · clusters ${formatPct(split.clusterPct)} · pool ${formatPct(split.poolPct)}.`,
-      },
-      {
-        score: String(intel.clusterCount ?? 0),
-        message: `${intel.clusterCount ?? 0} linked clusters · ${intel.bundleWallets ?? 0} bundle wallets · team ${formatPct(split.teamPct)}.`,
-      },
-    ];
-  }
-  return [{ score: "—", message: "Analysis is still running. Signals appear when the job finishes." }];
+  return [] as { score: string; message: string }[];
 }
 
 function clusterTitle(kind: string, clusterNo: number | null) {
@@ -193,7 +173,16 @@ export default function TracerAnalysisScreen() {
   const symbol = isWallet ? "Wallet" : prettySymbol(token?.symbol) || truncateAddress(address, 4);
   const quote = token?.brief.quoteSymbol;
   const intel = mapData?.intel;
-  const score = token?.brief.score ?? null;
+  const liveScore = useMemo(() => {
+    if (!token?.mint || !mapData?.nodes?.length) return null;
+    return scoreWithMapClusters({
+      mint: token.mint,
+      signals: token.brief.signals ?? [],
+      map: { ...mapData, edition: mapData.edition ?? "v2" },
+    });
+  }, [mapData, token]);
+  const score = liveScore?.score ?? token?.brief.score ?? null;
+  const breakdown = liveScore?.breakdown ?? token?.brief.breakdown ?? [];
   const creatorNode = mapData?.nodes?.find((node) => node.isCreator);
   const supply = token?.supply ?? mapData?.summary?.supply ?? null;
   const devHold = token?.devHoldPct ?? creatorNode?.percentage ?? null;
@@ -217,7 +206,7 @@ export default function TracerAnalysisScreen() {
         }
       : data,
   );
-  const signals = analysisRows(data, intel);
+  const signals = analysisRows(breakdown, data);
   const status = token?.brief.status;
   const holderRows = useMemo(() => {
     const q = holderQuery.trim().toLowerCase();
@@ -346,28 +335,26 @@ export default function TracerAnalysisScreen() {
           <View style={styles.riskText}>
             <Text style={styles.riskLabel}>Risk Score</Text>
             <Text style={styles.riskValue}>
-              {score != null
-                ? `${Math.round(score)} / 100`
-                : intel?.score != null
-                  ? `${Math.round(intel.score)} / 100`
-                  : analyzing
-                    ? "Scoring…"
-                    : "— / 100"}
+              {score != null ? `${Math.round(score)} / 100` : analyzing ? "Scoring…" : "— / 100"}
             </Text>
           </View>
-          <Text style={styles.riskBadge}>{score != null ? riskLabel(score) : intelScoreLabel(intel?.scoreLabel, intel?.score)}</Text>
+          <Text style={styles.riskBadge}>{score != null ? riskLabel(score) : "Unscored"}</Text>
         </View>
 
         <View style={styles.analysisPanel}>
           <View style={styles.iconHeading}><StonkIcon width={18} height={18} /><Text style={styles.limeHeading}>Analysis</Text></View>
           <View style={styles.analysisBody}>
             <Text style={styles.analysisDisclaimer}>This is a transparent behavioral index, not a determination that anyone is a rug-puller.</Text>
-            {signals.map((item, index) => (
-              <View key={index} style={styles.signalRow}>
+            {signals.length ? signals.map((item, index) => (
+              <View key={`${item.score}-${index}`} style={styles.signalRow}>
                 <Text style={styles.signalScore}>{item.score}</Text>
                 <Text style={styles.signalText}>{item.message}</Text>
               </View>
-            ))}
+            )) : (
+              <Text style={styles.signalText}>
+                {analyzing || bubbleLoading ? "Score appears after analysis finishes." : "No behavioral signals for this launch yet."}
+              </Text>
+            )}
           </View>
         </View>
 
