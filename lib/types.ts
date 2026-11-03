@@ -132,6 +132,7 @@ export type VolumeLeader = {
   newHolders: number | null;
   createdAt: string | null;
   graduatedAt: string;
+  creator?: string | null;
 };
 
 export type VolumeLeadersResponse = {

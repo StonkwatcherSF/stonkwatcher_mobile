@@ -92,7 +92,7 @@ export function normalizeToken(raw: unknown): StonkFunToken | null {
     symbol: asText(row.symbol),
     imageUrl: resolveMediaUrl(asText(row.imageUrl) ?? asText(row.logoUrl) ?? asText(row.image)) ?? undefined,
     logoUrl: resolveMediaUrl(asText(row.logoUrl) ?? asText(row.imageUrl)) ?? undefined,
-    creator: asText(row.creator),
+    creator: asText(row.creator) ?? asText(row.creatorAddress),
     status: asText(row.status),
     createdAt: asText(row.createdAt),
     graduatedAt: asText(row.graduatedAt),

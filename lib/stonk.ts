@@ -8,7 +8,7 @@ import {
   mergeTrades,
   normalizeToken,
 } from "./public-data";
-import { tokenMint } from "./solana";
+import { isSolanaAddress, tokenMint } from "./solana";
 import { fetchPublicTokenInfo } from "./token-info";
 import type {
   AnalyzeResponse,
@@ -72,6 +72,15 @@ export async function fetchQuoteCatalog(q?: string): Promise<QuoteAsset[]> {
 
 export function fetchMarket(mint: string) {
   return apiGet<MarketQuote>("/api/dex/market", { mint });
+}
+
+export async function fetchTokenCreator(mint: string) {
+  const page = await fetchStonkFunTokens({ q: mint, pageSize: 8 }).catch(() => null);
+  const fromFun = page?.tokens?.find((row) => row.mint === mint)?.creator;
+  if (fromFun && isSolanaAddress(fromFun)) return fromFun;
+  const board = await fetchTokens({ q: mint, raw: true, fast: true, pageSize: 8 }).catch(() => null);
+  const fromBoard = board?.tokens?.find((row) => row.mint === mint)?.creator;
+  return fromBoard && isSolanaAddress(fromBoard) ? fromBoard : null;
 }
 
 export async function fetchTokenByMint(mint: string) {
@@ -165,16 +174,7 @@ async function publicTokenTrace(mint: string): Promise<TracerPayload> {
       holderCount: market?.holders ?? info?.rewards?.holders ?? null,
       score: null,
       breakdown: [],
-      signals: info
-        ? [
-            {
-              signalType: "holders",
-              severity: "info",
-              confidence: 1,
-              description: `Top 10 holders ${info.stats.top10Pct ?? "—"}% · Dev ${info.stats.devPct ?? "—"}% · Snipers ${info.stats.sniperPct ?? "—"}%.`,
-            },
-          ]
-        : [],
+      signals: [],
     },
   };
   return {
