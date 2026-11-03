@@ -1,3 +1,4 @@
+import { useLocalization } from "./LocalizationContext";
 import React, { createContext, useContext, useState } from "react";
 
 type Preferences = {
@@ -35,8 +36,9 @@ const C = createContext<{
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [prefs, setPrefs] = useState(initial);
+  const { preference, saveLanguage } = useLocalization();
   return (
-    <C.Provider value={{ prefs, update: (x) => setPrefs((p) => ({ ...p, ...x })) }}>
+    <C.Provider value={{ prefs: { ...prefs, language: preference }, update: (x) => { if (x.language) void saveLanguage(x.language).catch(() => undefined); setPrefs((p) => ({ ...p, ...x })); } }}>
       {children}
     </C.Provider>
   );

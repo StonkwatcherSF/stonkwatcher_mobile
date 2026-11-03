@@ -1,16 +1,7 @@
+import { LocalizedText as Text } from "./LocalizationContext";
 
 import React, { useEffect, useRef } from "react";
-import {
-  Animated,
-  Dimensions,
-  Modal,
-  PanResponder,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Animated, Dimensions, Modal, PanResponder, Platform, Pressable, StyleSheet, View } from "react-native";
 import { BlurView } from "expo-blur";
 import {
   ArrowDownLeft,

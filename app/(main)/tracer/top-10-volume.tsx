@@ -1,14 +1,9 @@
+import { LocalizedText as Text } from "../../../components/LocalizationContext";
 import { useBackgroundScroll } from "../../../components/AppBackground";
 import TokenCardPressable from "../../../components/TokenCardPressable";
 import { SkeletonRows } from "../../../components/Skeleton";
 import React, { useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import TokenImage from "../../../components/TokenRiskImage";
@@ -82,8 +77,8 @@ export default function Top10VolumeScreen() {
                   <TokenImage uri={token.imageUrl} mint={token.mint} style={styles.tokenImage} />
                 </View>
                 <View style={styles.tokenInfo}>
-                  <Text numberOfLines={1} style={styles.tokenName}>
-                    {token.name || truncateAddress(token.mint)} <Text style={styles.symbol}>{prettySymbol(token.symbol)}</Text>
+                  <Text localize={false} numberOfLines={1} style={styles.tokenName}>
+                    {token.name || truncateAddress(token.mint)} <Text localize={false} style={styles.symbol}>{prettySymbol(token.symbol)}</Text>
                   </Text>
                   <Text style={styles.subText}>{formatMc(token.marketCapUsd)}</Text>
                 </View>

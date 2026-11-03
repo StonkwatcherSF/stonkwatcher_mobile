@@ -1,16 +1,9 @@
+import { LocalizedText as Text, LocalizedTextInput as TextInput, LocalizedAlert as Alert } from "../../../components/LocalizationContext";
 import TokenCardPressable from "../../../components/TokenCardPressable";
 import { SkeletonRows } from "../../../components/Skeleton";
 
 import React, { useState } from "react";
-import {
-  ScrollView,
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  StyleSheet,
-  Alert,
-} from "react-native";
+import { ScrollView, View, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { List } from "lucide-react-native";
 import { useNavScroll } from "../../../components/NavAnimationContext";
@@ -173,12 +166,12 @@ export default function TracerScreen() {
               <TokenAvatar uri={token.imageUrl} mint={token.mint} />
 
               <View style={styles.tokenInfo}>
-                <Text
+                <Text localize={false}
                   numberOfLines={1}
                   style={styles.tokenName}
                 >
                   {token.name || truncateAddress(token.mint)}{" "}
-                  <Text style={styles.symbol}>
+                  <Text localize={false} style={styles.symbol}>
                     {prettySymbol(token.symbol)}
                   </Text>
                 </Text>
@@ -223,12 +216,12 @@ export default function TracerScreen() {
               <TokenAvatar uri={token.imageUrl || token.logoUrl} mint={token.mint} />
 
               <View style={styles.tokenInfo}>
-                <Text
+                <Text localize={false}
                   numberOfLines={1}
                   style={styles.tokenName}
                 >
                   {token.name || truncateAddress(token.mint)}{" "}
-                  <Text style={styles.symbol}>
+                  <Text localize={false} style={styles.symbol}>
                     {prettySymbol(token.symbol)}
                   </Text>
                 </Text>
@@ -239,7 +232,7 @@ export default function TracerScreen() {
               </View>
 
               <View style={styles.rightInfo}>
-                <Text style={styles.tokenBadge}>
+                <Text localize={false} style={styles.tokenBadge}>
                   {token.quote?.symbol || "SOL"}
                 </Text>
 

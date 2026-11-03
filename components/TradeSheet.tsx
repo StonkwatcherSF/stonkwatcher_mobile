@@ -1,18 +1,9 @@
+import { LocalizedAlert as Alert, LocalizedText as Text } from "./LocalizationContext";
 import { useBackgroundScroll } from "./AppBackground";
 import { SkeletonRows } from "./Skeleton";
 import * as Haptics from "expo-haptics";
 import React, { useRef, useState, useEffect, } from "react";
-import {
-    Alert,
-    Animated,
-    Dimensions,
-    PanResponder,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
-} from "react-native";
+import { Animated, Dimensions, PanResponder, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import {
@@ -398,7 +389,7 @@ export default function TradeSheet({
 
                         <View style={styles.tokenDetails}>
                             <View style={styles.nameRow}>
-                                <Text
+                                <Text localize={false}
                                     style={styles.tokenName}
                                     numberOfLines={1}
                                 >
@@ -440,7 +431,7 @@ export default function TradeSheet({
                         </Text>
 
                         <View style={styles.tokenQuantityRow}>
-                            <Text style={styles.tokenQuantity}>
+                            <Text localize={false} style={styles.tokenQuantity}>
                                 {formatTokenAmount(tokenAmount)} {prettySymbol(symbol)}
                             </Text>
                             <ArrowLeftRight
@@ -562,7 +553,7 @@ export default function TradeSheet({
                             <Text style={styles.detailLabel}>
                                 Estimated Output
                             </Text>
-                            <Text
+                            <Text localize={false}
                                 style={[
                                     styles.detailValue,
                                     validAmount && {

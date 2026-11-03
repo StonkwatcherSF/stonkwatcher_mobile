@@ -1,5 +1,6 @@
+import { LocalizedText as Text, LocalizedAlert as Alert } from "./LocalizationContext";
 import React from "react";
-import { View, Text, Pressable, StyleSheet, Share, Alert } from "react-native";
+import { View, Pressable, StyleSheet, Share } from "react-native";
 import { BadgeCheck, ChevronLeft } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { COLORS, FONTS } from "../constants/theme";
@@ -46,9 +47,9 @@ export default function WalletProfile({ showBack = false, onOpenMore, onHistory,
       <View style={styles.profile}>
         <View style={styles.avatar}><UserAvatar style={styles.avatarImage} /></View>
         <View style={styles.info}>
-          <View style={styles.nameRow}><Text style={styles.name}>{prefs.name}</Text><BadgeCheck size={22} color={COLORS.stonkGreen} /></View>
-          <Text style={styles.handle}>{prefs.username}</Text>
-          <Text style={styles.bio}>{prefs.bio}</Text>
+          <View style={styles.nameRow}><Text localize={false} style={styles.name}>{prefs.name}</Text><BadgeCheck size={22} color={COLORS.stonkGreen} /></View>
+          <Text localize={false} style={styles.handle}>{prefs.username}</Text>
+          <Text localize={false} style={styles.bio}>{prefs.bio}</Text>
         </View>
       </View>
     </View>

@@ -1,3 +1,4 @@
+import { LocalizedText as Text } from "../../../components/LocalizationContext";
 import { sortWalletHoldings } from "../../../lib/wallet-sort";
 import PortfolioChart from "../../../components/PortfolioChart";
 import { equityRange } from "../../../lib/portfolio-equity";
@@ -6,14 +7,7 @@ import ConfirmationCelebration from "../../../components/ConfirmationCelebration
 import AnimatedAmount from "../../../components/AnimatedAmount";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  StyleSheet,
-  Image,
-} from "react-native";
+import { View, ScrollView, Pressable, StyleSheet, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -152,7 +146,7 @@ function PositionCard({
 
       <View style={styles.positionInfo}>
         <View style={styles.positionNameRow}>
-          <Text
+          <Text localize={false}
             style={styles.positionName}
             numberOfLines={1}
           >
@@ -165,7 +159,7 @@ function PositionCard({
           />}
         </View>
 
-        <Text style={[
+        <Text localize={false} style={[
           styles.positionSymbol,
           variant === "closed" && {
             marginTop: 7,

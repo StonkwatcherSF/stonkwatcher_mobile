@@ -1,15 +1,7 @@
+import { LocalizedText as Text, LocalizedAlert as Alert } from "../../../components/LocalizationContext";
 
 import React, { useEffect, useRef } from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  Animated,
-  PanResponder,
-  Image,
-  Alert,
-} from "react-native";
+import { View, Pressable, StyleSheet, Animated, PanResponder, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";

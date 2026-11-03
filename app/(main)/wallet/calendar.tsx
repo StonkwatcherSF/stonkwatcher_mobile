@@ -1,13 +1,7 @@
+import { useLocalization, LocalizedText as Text, LocalizedAlert as Alert } from "../../../components/LocalizationContext";
 
 import React, { useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  StyleSheet,
-  Alert,
-} from "react-native";
+import { View, ScrollView, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
@@ -92,9 +86,9 @@ function FeeShareDashboard({
 
         <View style={styles.tokenInfo}>
           <View style={styles.tokenTitleRow}>
-            <Text style={styles.tokenName}>{position.name}</Text>
+            <Text localize={false} style={styles.tokenName}>{position.name}</Text>
             <View style={styles.greenDot} />
-            <Text style={styles.tokenSymbol}>{symbol}</Text>
+            <Text localize={false} style={styles.tokenSymbol}>{symbol}</Text>
 
             <View style={styles.officialBadge}>
               {position.verified === true && <BadgeCheck
@@ -177,7 +171,8 @@ export default function RewardsCalendar() {
   const monthTotal = Object.values(pnlByDay).reduce((sum, value) => sum + value, 0);
   const profitableDays = Object.values(pnlByDay).filter((value) => value > 0).length;
 
-  const monthTitle = month.toLocaleString("en-US", {
+  const { locale } = useLocalization();
+  const monthTitle = month.toLocaleString(locale, {
     month: "long",
     year: "numeric",
     timeZone: "UTC",

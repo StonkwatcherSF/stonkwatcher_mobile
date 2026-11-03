@@ -1,5 +1,6 @@
+import { LocalizedText as Text, LocalizedAlert as Alert } from "../../../components/LocalizationContext";
 import React from "react";
-import { View, Text, Pressable, Alert, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { ChevronRight } from "lucide-react-native";
 import { Page } from "../../../components/SettingsUI";

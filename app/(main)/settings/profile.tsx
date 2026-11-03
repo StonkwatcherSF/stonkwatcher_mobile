@@ -1,5 +1,6 @@
+import { LocalizedText as Text, LocalizedTextInput as TextInput, LocalizedAlert as Alert } from "../../../components/LocalizationContext";
 import React, { useState } from "react";
-import { Text, TextInput, View, Alert, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
 import { Settings } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Page, st } from "../../../components/SettingsUI";

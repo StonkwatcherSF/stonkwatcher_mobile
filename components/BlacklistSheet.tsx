@@ -1,12 +1,16 @@
+import { LocalizedAlert as Alert, LocalizedText as Text, LocalizedTextInput as TextInput } from "./LocalizationContext";
+import * as Haptics from "expo-haptics";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import TradeConfirmation from "./TradeConfirmation";
 import { useBackgroundScroll } from "./AppBackground";
 import { Skeleton, SkeletonGroup, SkeletonRows } from "./Skeleton";
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Animated, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Animated, Keyboard, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { ChevronRight } from "lucide-react-native";
 import BlacklistIcon from "../assets/icons/carbon_disable-step.svg";
-import { type BlacklistKind, useBlacklist } from "./BlacklistContext";
+import { type BlacklistKind, type BlacklistEntry, useBlacklist } from "./BlacklistContext";
 import BlacklistListPanel from "./BlacklistListPanel";
 import TokenImage from "./TokenImage";
 import { useBlacklistLookup } from "../hooks/useBlacklistLookup";
@@ -18,6 +22,8 @@ const REASONS = ["Scam", "Sniper", "Bundler", "Insider", "Wash/Sybil", "Dump"];
 type Props = { visible: boolean; onClose: () => void; onOpenList?: () => void };
 
 export default function BlacklistSheet({ visible, onClose }: Props) {
+  const insets = useSafeAreaInsets();
+  const [confirmation, setConfirmation] = useState<{ id: number; entry: Pick<BlacklistEntry, "kind" | "address" | "name" | "imageUrl">; status: "blocked" | "unblocked" } | null>(null);
   const backgroundScroll = useBackgroundScroll();
   const [kind, setKind] = useState<BlacklistKind>("Wallet");
   const [address, setAddress] = useState("");
@@ -56,14 +62,14 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
       dragY.setValue(850);
       Animated.spring(dragY, { toValue: 0, speed: 18, bounciness: 0, useNativeDriver: true }).start();
     } else {
-      setAddress(""); setReasons([]); setKind("Wallet"); setShowList(false);
+      setAddress(""); setReasons([]); setKind("Wallet"); setShowList(false); setConfirmation(null);
       dragY.setValue(850);
       slideX.setValue(0);
     }
   }, [visible, dragY, slideX]);
 
   const { match, checking, message } = useBlacklistLookup(kind, address, visible);
-  const canSubmit = visible && Boolean(match) && !checking && reasons.length > 0;
+  const canSubmit = visible && !confirmation && !showList && Boolean(match) && !checking && reasons.length > 0;
 
   canSubmitRef.current = canSubmit;
 
@@ -77,7 +83,8 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
     onPanResponderRelease: (_, g) => {
       const max = sliderMaxRef.current;
       if (canSubmitRef.current && max > 0 && g.dx >= max * 0.83) {
-        Animated.timing(slideX, { toValue: max, duration: 110, useNativeDriver: false }).start(() => {
+        Animated.timing(slideX, { toValue: max, duration: 110, useNativeDriver: false }).start(({ finished }) => {
+          if (!finished) return;
           submitRef.current();
           resetSlider();
         });
@@ -96,7 +103,9 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
       Alert.alert("Already blacklisted", "This address is already on your private demo blacklist.");
       return;
     }
-    onClose();
+    Keyboard.dismiss();
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+    setConfirmation({ id: Date.now(), entry: { kind, address: address.trim(), name: match?.name, imageUrl: match?.imageUrl }, status: "blocked" });
   };
 
   submitRef.current = submit;
@@ -104,10 +113,10 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
   const toggleReason = (reason: string) => setReasons(previous => previous.includes(reason) ? previous.filter(item => item !== reason) : [...previous, reason]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => showList ? setShowList(false) : onClose()}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => confirmation ? undefined : showList ? setShowList(false) : onClose()}>
       <View style={styles.overlay}>
         <BlurView tint="dark" intensity={32} style={StyleSheet.absoluteFill} pointerEvents="none" />
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => { if (showList) setShowList(false); else onClose(); }} accessibilityLabel="Dismiss blacklist sheet" />
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => { if (confirmation) return; if (showList) setShowList(false); else onClose(); }} accessibilityLabel="Dismiss blacklist sheet" />
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.keyboard} pointerEvents="box-none">
           <Animated.View style={[styles.sheet, { transform: [{ translateY: dragY }] }]}>
             <View style={styles.handleTouchArea} {...handlePan.panHandlers}><View style={styles.handle} /></View>
@@ -133,7 +142,7 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
               {match && (
                 <View style={styles.tokenPreview}>
                   <View style={styles.coin}><TokenImage uri={match.imageUrl} mint={kind === "Token" ? address.trim() : undefined} style={styles.previewImage} /></View>
-                  <View style={{ flex: 1 }}><Text style={styles.previewName} numberOfLines={1}>{match.name}</Text><Text style={styles.previewSub} numberOfLines={1}>{address.trim()}</Text></View>
+                  <View style={{ flex: 1 }}><Text localize={false} style={styles.previewName} numberOfLines={1}>{match.name}</Text><Text localize={false} style={styles.previewSub} numberOfLines={1}>{address.trim()}</Text></View>
                 </View>
               )}
               <Text style={styles.reasonLabel}>Reason</Text>
@@ -168,7 +177,7 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
                       style={StyleSheet.absoluteFill}
                     />
                   </Animated.View>
-                  {checking ? <SkeletonGroup style={{ alignItems: "center" }} label="Verifying address"><Skeleton width={115} height={12} /></SkeletonGroup> : <Text pointerEvents="none" style={[styles.slideLabel, !canSubmit && styles.slideLabelDisabled]}>
+                  {checking ? <SkeletonGroup style={{ alignItems: "center" }} label="Verifying address"><Skeleton width={115} height={12} /></SkeletonGroup> : <Text localize={false} pointerEvents="none" style={[styles.slideLabel, !canSubmit && styles.slideLabelDisabled]}>
                     {canSubmit ? "Slide to block" : match ? "Select a reason" : "Verify an address"}
                   </Text>}
                   <Animated.View
@@ -192,9 +201,17 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
           <View style={styles.listOverlay}>
             <BlurView tint="dark" intensity={25} style={StyleSheet.absoluteFill} pointerEvents="none" />
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowList(false)} accessibilityLabel="Back to blacklist search" />
-            <BlacklistListPanel onBack={() => setShowList(false)} onDragDown={() => setShowList(false)} />
+            <BlacklistListPanel onUnblocked={(entry) => { void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined); setConfirmation({ id: Date.now(), entry, status: "unblocked" }); }} onBack={() => setShowList(false)} onDragDown={() => setShowList(false)} />
           </View>
         )}
+        {confirmation && <View style={[StyleSheet.absoluteFill, { paddingTop: insets.top + 12, alignItems: "center", zIndex: 20 }]} accessibilityViewIsModal>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => {}} accessible={false} />
+          <TradeConfirmation key={confirmation.id} tokenName={confirmation.entry.name || confirmation.entry.kind} imageUrl={confirmation.entry.imageUrl} mint={confirmation.entry.kind === "Token" ? confirmation.entry.address : undefined} address={confirmation.entry.address} status={confirmation.status} mode={confirmation.status === "blocked" ? "sell" : "buy"} onDismiss={() => {
+            setConfirmation(null);
+            setAddress(""); setReasons([]); slideX.setValue(0);
+            setShowList(true);
+          }} />
+        </View>}
       </View>
     </Modal>
   );

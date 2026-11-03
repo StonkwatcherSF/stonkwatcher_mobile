@@ -1,18 +1,7 @@
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../../../components/LocalizationContext";
 import { useBackgroundScroll } from "../../../../components/AppBackground";
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  KeyboardAvoidingView,
-  LayoutChangeEvent,
-  PanResponder,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Animated, KeyboardAvoidingView, LayoutChangeEvent, PanResponder, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -306,7 +295,7 @@ export default function SendScreen() {
                 <Text style={styles.detailsTitle}>Details</Text>
                 <View style={styles.detailLine}>
                   <Text style={styles.muted}>To</Text>
-                  <Text style={styles.detailValue} numberOfLines={1}>
+                  <Text localize={false} style={styles.detailValue} numberOfLines={1}>
                     {recipient.address.slice(0, 11)}...{recipient.address.slice(-10)}
                   </Text>
                 </View>

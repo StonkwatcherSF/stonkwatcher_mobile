@@ -1,5 +1,6 @@
+import { LocalizedText as Text } from "./LocalizationContext";
 import React, { memo, useCallback, useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import Svg, { Polyline } from "react-native-svg";
 import { Skeleton } from "./Skeleton";

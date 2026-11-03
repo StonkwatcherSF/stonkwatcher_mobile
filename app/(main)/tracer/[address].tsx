@@ -1,16 +1,9 @@
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../../components/LocalizationContext";
 import { publishTokenRisk } from "../../../lib/token-risk";
 import { useBackgroundScroll } from "../../../components/AppBackground";
 import { Skeleton, SkeletonGroup, SkeletonPage } from "../../../components/Skeleton";
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -304,8 +297,8 @@ export default function TracerAnalysisScreen() {
             <TokenImage uri={token?.brief.imageUrl} mint={token?.mint || address} style={styles.tokenAvatarImage} />
           </View>
           <View style={styles.tokenIdentity}>
-            <Text style={styles.tokenTitle}>{title}</Text>
-            <Text style={styles.tokenSymbol}>{symbol}</Text>
+            <Text localize={false} style={styles.tokenTitle}>{title}</Text>
+            <Text localize={false} style={styles.tokenSymbol}>{symbol}</Text>
           </View>
           <View style={styles.badges}>
             {quote ? <Text style={styles.ttwoBadge}>◉ {quote}</Text> : null}
@@ -479,7 +472,7 @@ export default function TracerAnalysisScreen() {
                       >
                         <Text style={styles.holderRank}>#{member.rank}</Text>
                         <View style={[styles.holderDot, { backgroundColor: member.isCreator ? "#f2c94c" : member.pal.fill }]} />
-                        <Text style={styles.holderAddress} numberOfLines={1}>
+                        <Text localize={false} style={styles.holderAddress} numberOfLines={1}>
                           {member.isCreator ? "Dev" : truncateAddress(member.address || member.label)}
                           {member.isMagic ? " · Magic" : ""}
                           {member.clusterKind && member.clusterKind !== "organic" ? ` · ${member.clusterKind}` : ""}

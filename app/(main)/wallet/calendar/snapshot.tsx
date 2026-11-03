@@ -1,16 +1,9 @@
+import { LocalizedText as Text, LocalizedAlert as Alert } from "../../../../components/LocalizationContext";
 import { useBackgroundScroll } from "../../../../components/AppBackground";
 import { Skeleton, SkeletonGroup } from "../../../../components/Skeleton";
 
 import React, { useRef, useState } from "react";
-import {
-    View,
-    Text,
-    StyleSheet,
-    Pressable,
-    ScrollView,
-    Alert,
-    Image,
-} from "react-native";
+import { View, StyleSheet, Pressable, ScrollView, Image } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
     ArrowLeft,
@@ -256,7 +249,7 @@ export default function SnapshotScreen() {
 
                             <View style={styles.profileInfo}>
                                 <View style={styles.nameRow}>
-                                    <Text
+                                    <Text localize={false}
                                         style={[
                                             styles.username,
                                             { color: theme.text },
@@ -269,7 +262,7 @@ export default function SnapshotScreen() {
                                         color={COLORS.stonkGreen}
                                     />
                                 </View>
-                                <Text
+                                <Text localize={false}
                                     style={[
                                         styles.handle,
                                         { color: theme.text },
@@ -324,7 +317,7 @@ export default function SnapshotScreen() {
                                         >
                                             {snapshot.token}
                                         </Text>
-                                        <Text
+                                        <Text localize={false}
                                             style={[
                                                 styles.symbol,
                                                 { color: theme.text },
@@ -343,7 +336,7 @@ export default function SnapshotScreen() {
                                         </View>}
                                     </View>
 
-                                    <Text
+                                    <Text localize={false}
                                         style={[
                                             styles.address,
                                             { color: theme.secondary },

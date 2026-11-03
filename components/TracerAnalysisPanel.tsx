@@ -1,6 +1,8 @@
+import { useLocalization, LocalizedText as Text } from "./LocalizationContext";
+import { translateText } from "../lib/translations";
 import { Skeleton, SkeletonGroup } from "./Skeleton";
 import React, { memo, useCallback, useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import Animated, {
   cancelAnimation,
@@ -29,6 +31,7 @@ function chunksFor(text: string) {
 }
 
 export const RevealChunk = memo(function RevealChunk({ text, clock, start, glowColor }: { text: string; clock: SharedValue<number>; start: number; glowColor?: string }) {
+  const { locale } = useLocalization();
   const animation = useAnimatedStyle(() => {
     const progress = Math.max(0, Math.min(1, (clock.value - start) / REVEAL_TIME));
     return {
@@ -36,11 +39,12 @@ export const RevealChunk = memo(function RevealChunk({ text, clock, start, glowC
       textShadowRadius: progress > 0 && progress < 1 ? 10 * Math.sin(progress * Math.PI) : 0,
     };
   });
-  return <Animated.Text style={[styles.word, glowColor ? { textShadowColor: glowColor } : undefined, animation]}>{text}</Animated.Text>;
+  return <Animated.Text style={[styles.word, glowColor ? { textShadowColor: glowColor } : undefined, animation]}>{translateText(text, locale)}</Animated.Text>;
 });
 
 function RevealText({ text, clock, start }: { text: string; clock: SharedValue<number>; start: number }) {
-  const chunks = useMemo(() => chunksFor(text), [text]);
+  const { locale } = useLocalization();
+  const chunks = useMemo(() => chunksFor(translateText(text, locale)), [text, locale]);
   return (
     <Text style={styles.message} accessible accessibilityLabel={text}>
       {chunks.map((chunk, i) => <RevealChunk key={i} text={chunk} clock={clock} start={start + i * WORD_STEP} />)}

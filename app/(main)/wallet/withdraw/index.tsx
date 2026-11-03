@@ -1,16 +1,7 @@
+import { LocalizedText as Text } from "../../../../components/LocalizationContext";
 
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Animated,
-  Dimensions,
-  KeyboardAvoidingView,
-  PanResponder,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Animated, Dimensions, KeyboardAvoidingView, PanResponder, Platform, Pressable, StyleSheet, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { BlurView } from "expo-blur";
 import { ArrowLeft, Delete } from "lucide-react-native";

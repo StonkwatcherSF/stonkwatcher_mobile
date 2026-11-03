@@ -1,18 +1,9 @@
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../../components/LocalizationContext";
 import SearchSparkline from "../../../components/SearchSparkline";
 import TokenCardPressable from "../../../components/TokenCardPressable";
 import { Skeleton, SkeletonGroup, SkeletonRows } from "../../../components/Skeleton";
 import React, { useEffect, useState } from "react";
-import {
-  Animated,
-  Keyboard,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Animated, Keyboard, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { BadgeCheck, Search, X } from "lucide-react-native";
 import { useBlacklist } from "../../../components/BlacklistContext";
@@ -92,7 +83,7 @@ function ResultRow({ item, onPress }: { item: SearchItem; onPress: () => void })
       </View>
       <View style={styles.info}>
         <View style={styles.nameLine}>
-          <Text numberOfLines={1} style={styles.name}>{item.name}</Text>
+          <Text localize={false} numberOfLines={1} style={styles.name}>{item.name}</Text>
           {item.verified === true && <BadgeCheck size={13} color={LIME} />}
         </View>
         <Text numberOfLines={1} style={styles.subtitle}>{item.subtitle}</Text>

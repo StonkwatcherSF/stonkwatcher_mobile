@@ -1,6 +1,28 @@
-import React,{useState} from "react";
-import {Pressable,Text,Alert} from "react-native";
-import {Page,lime} from "../../../components/SettingsUI";
-import {useSettings} from "../../../components/SettingsContext";
-const languages=["System (English)","English","Deutsch","Español","Français","中文"];
-export default function Language(){const {prefs,update}=useSettings();const [value,setValue]=useState(prefs.language);return <Page title="Language" action="Save Changes" onAction={()=>{update({language:value});Alert.alert("Saved","Language preference saved for this session. Full translation is not enabled yet.")}}>{languages.map(l=><Pressable key={l} onPress={()=>setValue(l)} style={{height:54,flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}><Text style={{color:"white",fontSize:16}}>{l}</Text>{value===l&&<Text style={{color:lime,fontSize:22}}>●</Text>}</Pressable>)}</Page>}
+import { useLocalization, LocalizedText as Text, LocalizedAlert as Alert } from "../../../components/LocalizationContext";
+import React, { useState } from "react";
+import { Pressable } from "react-native";
+import { Page, lime } from "../../../components/SettingsUI";
+import { LANGUAGE_OPTIONS } from "../../../lib/translations";
+
+export default function Language() {
+  const { preference } = useLocalization();
+  return <LanguageForm key={preference} initial={preference} />;
+}
+function LanguageForm({ initial }: { initial: string }) {
+  const { saveLanguage } = useLocalization();
+  const [value, setValue] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    if (saving) return;
+    setSaving(true);
+    try { await saveLanguage(value); Alert.alert("Saved", "Language updated."); }
+    catch { Alert.alert("Error", "Could not save language. Please try again."); }
+    finally { setSaving(false); }
+  };
+  return <Page title="Language" action="Save Changes" onAction={() => { void save(); }}>
+    {LANGUAGE_OPTIONS.map((language) => <Pressable key={language} disabled={saving} onPress={() => setValue(language)} accessibilityRole="radio" accessibilityState={{ checked: value === language }} style={{ height: 54, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+      <Text style={{ color: "white", fontSize: 16 }}>{language === "System (English)" ? "System" : language}</Text>
+      {value === language && <Text style={{ color: lime, fontSize: 22 }}>●</Text>}
+    </Pressable>)}
+  </Page>;
+}

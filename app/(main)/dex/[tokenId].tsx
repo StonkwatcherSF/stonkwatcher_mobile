@@ -1,7 +1,8 @@
+import { LocalizedText as Text, LocalizedAlert as Alert } from "../../../components/LocalizationContext";
 import { useBackgroundScroll } from "../../../components/AppBackground";
 import { Skeleton, SkeletonRows, SkeletonChart } from "../../../components/Skeleton";
 import React, { useRef, useState } from "react";
-import { View, Text, ScrollView, Pressable, StyleSheet, useWindowDimensions, Alert } from "react-native";
+import { View, ScrollView, Pressable, StyleSheet, useWindowDimensions } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
@@ -278,7 +279,7 @@ export default function DexTokenScreen() {
           </View>
           {detailLoading && !detail ? <SkeletonRows count={1} /> : <View style={styles.tokenHeader}>
             <View style={styles.tokenAvatar}><TokenImage uri={logoUri} mint={mint} style={styles.tokenImage} /></View>
-            <View style={{ flex: 1 }}><View style={styles.nameRow}><Text style={styles.tokenName}>{token.name}</Text>{tokenMeta?.verified === true && <BadgeCheck size={17} color={COLORS.stonkGreen} />}</View><Pressable onPress={() => void handleCopyMint()} hitSlop={10} style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5 }} accessibilityRole="button" accessibilityLabel="Copy contract address"><Text style={styles.symbol}>{copied ? "Copied" : ticker}</Text><Copy size={12} color={copied ? COLORS.stonkGreen : COLORS.grey} /></Pressable></View>
+            <View style={{ flex: 1 }}><View style={styles.nameRow}><Text localize={false} style={styles.tokenName}>{token.name}</Text>{tokenMeta?.verified === true && <BadgeCheck size={17} color={COLORS.stonkGreen} />}</View><Pressable onPress={() => void handleCopyMint()} hitSlop={10} style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5 }} accessibilityRole="button" accessibilityLabel="Copy contract address"><Text style={styles.symbol}>{copied ? "Copied" : ticker}</Text><Copy size={12} color={copied ? COLORS.stonkGreen : COLORS.grey} /></Pressable></View>
             <View style={styles.marketInfo}><Text style={styles.marketLabel}>MC</Text><Text style={styles.marketValue}>{token.marketCap}</Text><Text style={[styles.change, { color: positive ? COLORS.buy : COLORS.sell }]}>{positive ? "▲" : "▼"} {Math.abs(token.change).toFixed(2)}%</Text></View>
           </View>}
           <View style={styles.chart}>

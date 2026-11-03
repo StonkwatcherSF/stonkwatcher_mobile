@@ -1,17 +1,10 @@
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../components/LocalizationContext";
 import { useBackgroundScroll } from "../../components/AppBackground";
 import TokenCardPressable from "../../components/TokenCardPressable";
 import { SkeletonRows } from "../../components/Skeleton";
 
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  StatusBar,
-  TextInput,
-} from "react-native";
+import { View, StyleSheet, Pressable, ScrollView, StatusBar } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BadgeCheck, ChevronDown, ChevronUp } from "lucide-react-native";
 import {
@@ -136,7 +129,7 @@ export default function TokensScreen() {
           accessibilityLabel={quote.symbol === "All Quotes" ? "Select quote" : `Quote: ${quote.symbol}`}
           accessibilityState={{ expanded: showQuotes }}
         >
-          <Text style={styles.quoteText}>
+          <Text localize={false} style={styles.quoteText}>
             {quote.symbol === "All Quotes"
               ? "Select Quote"
               : quote.symbol}
@@ -171,7 +164,7 @@ export default function TokensScreen() {
                     setShowQuotes(false);
                   }}
                 >
-                  <Text style={styles.quoteText}>
+                  <Text localize={false} style={styles.quoteText}>
                     {option.symbol}
                   </Text>
                 </Pressable>
@@ -202,7 +195,7 @@ export default function TokensScreen() {
             <Text style={styles.marketCap}>{error}</Text>
           ) : null}
           {!loading && tokens?.length && !visibleTokens.length ? (
-            <Text style={styles.marketCap}>No {quote.symbol} pairs in this list.</Text>
+            <Text localize={false} style={styles.marketCap}>No {quote.symbol} pairs in this list.</Text>
           ) : null}
           {visibleTokens.map((token) => {
             const change = token.market?.priceChange24h ?? 0;
@@ -227,7 +220,7 @@ export default function TokensScreen() {
               {/* TOKEN NAME */}
               <View style={styles.tokenDetails}>
                 <View style={styles.nameRow}>
-                  <Text
+                  <Text localize={false}
                     style={styles.tokenName}
                     numberOfLines={1}
                   >
