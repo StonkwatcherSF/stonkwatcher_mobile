@@ -1,5 +1,6 @@
 import { LocalizedText as Text, LocalizedTextInput as TextInput, LocalizedAlert as Alert } from "../../../components/LocalizationContext";
 import TokenCardPressable from "../../../components/TokenCardPressable";
+import TokenHolderCount from "../../../components/TokenHolderCount";
 import { SkeletonRows } from "../../../components/Skeleton";
 
 import React, { useState } from "react";
@@ -10,7 +11,7 @@ import { useNavScroll } from "../../../components/NavAnimationContext";
 import TokenImage from "../../../components/TokenRiskImage";
 import { useVolumeLeaders } from "../../../hooks/useVolumeLeaders";
 import { useNewLaunches } from "../../../hooks/useNewLaunches";
-import { compactUsd, formatAge, formatCount, formatMc, prettySymbol } from "../../../lib/format";
+import { compactUsd, formatAge, formatMc, prettySymbol } from "../../../lib/format";
 import { tracerHref } from "../../../lib/nav";
 import { isSolanaAddress, truncateAddress } from "../../../lib/solana";
 import type { VolumeLeaderWindow } from "../../../lib/types";
@@ -186,9 +187,7 @@ export default function TracerScreen() {
                   {period === "1 Week" ? "7d" : "24h"} {compactUsd(token.volume24hUsd)}
                 </Text>
 
-                <Text style={styles.subText}>
-                  ♧ {formatCount(token.newHolders)}
-                </Text>
+                <TokenHolderCount mint={token.mint} />
               </View>
             </TokenCardPressable>
           ))}

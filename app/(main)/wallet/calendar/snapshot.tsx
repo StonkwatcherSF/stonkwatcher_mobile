@@ -10,7 +10,7 @@ import {
     BadgeCheck,
     Send,
 } from "lucide-react-native";
-import * as Sharing from "expo-sharing";
+import * as Sharing from "../../../../utils/image-sharing";
 import ViewShot, { captureRef } from "react-native-view-shot";
 import {
     COLORS,

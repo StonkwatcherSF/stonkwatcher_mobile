@@ -1,3 +1,4 @@
+import { isOfficialToken, OFFICIAL_BLOCK_MESSAGE } from "../lib/official-tokens";
 import { useEffect, useState } from "react";
 import type { BlacklistKind } from "../components/BlacklistContext";
 import { isSolanaAddress, tokenMint } from "../lib/solana";
@@ -10,11 +11,12 @@ export function useBlacklistLookup(kind: BlacklistKind, input: string, enabled: 
   const address = input.trim();
   const debounced = useDebouncedValue(address);
   const key = `${kind}:${address}`;
+  const official = isOfficialToken(address);
   const [result, setResult] = useState<Result | null>(null);
   const validFormat = isSolanaAddress(address);
 
   useEffect(() => {
-    if (!enabled || !isSolanaAddress(debounced) || address !== debounced) return;
+    if (!enabled || official || !isSolanaAddress(debounced) || address !== debounced) return;
     let cancelled = false;
     const controller = new AbortController();
     let timeout: ReturnType<typeof setTimeout>;
@@ -46,12 +48,12 @@ export function useBlacklistLookup(kind: BlacklistKind, input: string, enabled: 
       .catch(() => { if (!cancelled) setResult({ key, match: null, error: "Unable to verify right now. Check your connection and try again." }); })
       .finally(() => clearTimeout(timeout));
     return () => { cancelled = true; controller.abort(); clearTimeout(timeout); };
-  }, [address, debounced, enabled, key, kind]);
+  }, [address, debounced, enabled, key, kind, official]);
 
   const current = enabled && result?.key === key && address === debounced ? result : null;
   return {
-    match: validFormat ? current?.match ?? null : null,
-    checking: enabled && validFormat && !current,
-    message: !address ? "" : !validFormat ? "Enter a valid Solana address." : current?.error || (current && !current.match ? `No matching ${kind.toLowerCase()} found.` : ""),
+    match: validFormat && !official ? current?.match ?? null : null,
+    checking: enabled && !official && validFormat && !current,
+    message: official ? OFFICIAL_BLOCK_MESSAGE : !address ? "" : !validFormat ? "Enter a valid Solana address." : current?.error || (current && !current.match ? `No matching ${kind.toLowerCase()} found.` : ""),
   };
 }

@@ -2,13 +2,14 @@ import { LocalizedText as Text } from "../../../components/LocalizationContext";
 import { useBackgroundScroll } from "../../../components/AppBackground";
 import TokenCardPressable from "../../../components/TokenCardPressable";
 import { SkeletonRows } from "../../../components/Skeleton";
+import TokenHolderCount from "../../../components/TokenHolderCount";
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import TokenImage from "../../../components/TokenRiskImage";
 import { useVolumeLeaders } from "../../../hooks/useVolumeLeaders";
-import { compactUsd, formatCount, formatMc, prettySymbol } from "../../../lib/format";
+import { compactUsd, formatMc, prettySymbol } from "../../../lib/format";
 import { tracerHref } from "../../../lib/nav";
 import { truncateAddress } from "../../../lib/solana";
 import type { VolumeLeaderWindow } from "../../../lib/types";
@@ -86,7 +87,7 @@ export default function Top10VolumeScreen() {
                   <Text style={styles.rightText}>
                     {period === "24 Hours" ? "24h" : "7d"} {compactUsd(token.volume24hUsd)}
                   </Text>
-                  <Text style={styles.subText}>♧ {formatCount(token.newHolders)}</Text>
+                  <TokenHolderCount mint={token.mint} />
                 </View>
               </TokenCardPressable>
             ))}

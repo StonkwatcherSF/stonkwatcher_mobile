@@ -6,6 +6,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Page, st } from "../../../components/SettingsUI";
 import { useSettings } from "../../../components/SettingsContext";
 import UserAvatar from "../../../components/UserAvatar";
+import { saveProfileAvatar } from "../../../utils/profile-avatar";
 
 const usernameValue = (value: string) => value.replace(/[@\s]/gu, "");
 
@@ -30,7 +31,12 @@ export default function Profile() {
     });
 
     if (!result.canceled) {
-      update({ avatarUri: result.assets[0].uri });
+      try {
+        const avatarUri = await saveProfileAvatar(result.assets[0].uri);
+        update({ avatarUri });
+      } catch {
+        Alert.alert("Unable to save", "Could not save the profile image. Please try again.");
+      }
     }
   };
 

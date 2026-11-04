@@ -1,5 +1,6 @@
 import React, { createContext, forwardRef, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Alert as NativeAlert, Text as NativeText, TextInput as NativeTextInput, type TextProps } from "react-native";
+import { Text as NativeText, TextInput as NativeTextInput, type TextProps } from "react-native";
+import { Alert as NativeAlert } from "../utils/alert";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LANGUAGE_OPTIONS, resolveLocale, translateText, type AppLocale } from "../lib/translations";
 

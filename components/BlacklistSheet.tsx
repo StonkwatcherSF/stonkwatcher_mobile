@@ -1,3 +1,4 @@
+import { isOfficialToken, OFFICIAL_BLOCK_MESSAGE } from "../lib/official-tokens";
 import { LocalizedAlert as Alert, LocalizedText as Text, LocalizedTextInput as TextInput } from "./LocalizationContext";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -5,7 +6,7 @@ import TradeConfirmation from "./TradeConfirmation";
 import { useBackgroundScroll } from "./AppBackground";
 import { Skeleton, SkeletonGroup, SkeletonRows } from "./Skeleton";
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Keyboard, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Animated, Keyboard, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { ChevronRight } from "lucide-react-native";
@@ -19,17 +20,45 @@ const LIME = "#C6E900";
 const SLIDER_HEIGHT = 49;
 const THUMB_WIDTH = 54;
 const REASONS = ["Scam", "Sniper", "Bundler", "Insider", "Wash/Sybil", "Dump"];
-type Props = { visible: boolean; onClose: () => void; onOpenList?: () => void };
+type Props = {
+  visible: boolean;
+  onClose: () => void;
+  onOpenList?: () => void;
+  initialKind?: BlacklistKind;
+  initialAddress?: string;
+  initialView?: "form" | "list";
+  onBlockComplete?: () => void;
+  onDismiss?: () => void;
+};
 
-export default function BlacklistSheet({ visible, onClose }: Props) {
+export default function BlacklistSheet({ visible, onClose, initialKind = "Wallet", initialAddress = "", initialView = "form", onBlockComplete, onDismiss }: Props) {
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const inputFocused = useRef(false);
+  const keyboardVisible = useRef(false);
   const [confirmation, setConfirmation] = useState<{ id: number; entry: Pick<BlacklistEntry, "kind" | "address" | "name" | "imageUrl">; status: "blocked" | "unblocked" } | null>(null);
   const backgroundScroll = useBackgroundScroll();
   const [kind, setKind] = useState<BlacklistKind>("Wallet");
   const [address, setAddress] = useState("");
   const [reasons, setReasons] = useState<string[]>([]);
-  const [showList, setShowList] = useState(false);
+  const [showList, setShowList] = useState(initialView === "list");
+  const closeList = () => initialView === "list" ? onClose() : setShowList(false);
   const { addEntry } = useBlacklist();
+  useEffect(() => {
+    if (!visible) return;
+    const show = Keyboard.addListener("keyboardDidShow", () => { keyboardVisible.current = true; });
+    const hide = Keyboard.addListener("keyboardDidHide", () => {
+      keyboardVisible.current = false;
+      inputFocused.current = false;
+    });
+    return () => { show.remove(); hide.remove(); keyboardVisible.current = false; inputFocused.current = false; };
+  }, [visible]);
+  const dismissBackdrop = (): void => {
+    if (confirmation) return;
+    if (inputFocused.current || keyboardVisible.current) { Keyboard.dismiss(); return; }
+    if (showList) closeList();
+    else onClose();
+  };
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   const dragY = useRef(new Animated.Value(850)).current;
@@ -59,6 +88,9 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
 
   useEffect(() => {
     if (visible) {
+      setKind(initialKind);
+      setAddress(initialAddress.trim());
+      setShowList(initialView === "list");
       dragY.setValue(850);
       Animated.spring(dragY, { toValue: 0, speed: 18, bounciness: 0, useNativeDriver: true }).start();
     } else {
@@ -66,7 +98,7 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
       dragY.setValue(850);
       slideX.setValue(0);
     }
-  }, [visible, dragY, slideX]);
+  }, [visible, initialKind, initialAddress, initialView, dragY, slideX]);
 
   const { match, checking, message } = useBlacklistLookup(kind, address, visible);
   const canSubmit = visible && !confirmation && !showList && Boolean(match) && !checking && reasons.length > 0;
@@ -94,6 +126,7 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
   })).current;
 
   const submit = () => {
+    if (isOfficialToken(address)) { Alert.alert("Official token", OFFICIAL_BLOCK_MESSAGE); return; }
     if (!canSubmit) {
       Alert.alert("Incomplete entry", "Verify a real wallet or token address and select a reason.");
       return;
@@ -113,12 +146,12 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
   const toggleReason = (reason: string) => setReasons(previous => previous.includes(reason) ? previous.filter(item => item !== reason) : [...previous, reason]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => confirmation ? undefined : showList ? setShowList(false) : onClose()}>
+    <Modal visible={visible} transparent animationType="fade" onDismiss={onDismiss} onRequestClose={() => confirmation ? undefined : showList ? closeList() : onClose()}>
       <View style={styles.overlay}>
         <BlurView tint="dark" intensity={32} style={StyleSheet.absoluteFill} pointerEvents="none" />
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => { if (confirmation) return; if (showList) setShowList(false); else onClose(); }} accessibilityLabel="Dismiss blacklist sheet" />
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.keyboard} pointerEvents="box-none">
-          <Animated.View style={[styles.sheet, { transform: [{ translateY: dragY }] }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={dismissBackdrop} accessibilityLabel="Dismiss blacklist sheet" />
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboard} pointerEvents="box-none">
+          <Animated.View style={[styles.sheet, { height: Math.round(height * 0.88), maxHeight: Math.max(0, height - insets.top - 12), transform: [{ translateY: dragY }] }]}>
             <View style={styles.handleTouchArea} {...handlePan.panHandlers}><View style={styles.handle} /></View>
             <View style={styles.header}>
               <Text style={styles.heading}>Blacklist</Text>
@@ -134,7 +167,7 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
                   </Pressable>
                 ))}
               </View>
-              <TextInput style={styles.input} value={address} onChangeText={(value) => { setAddress(value); slideX.setValue(0); }} autoCapitalize="none" autoCorrect={false} placeholder={`Paste a Solana ${kind.toLowerCase()} address`} placeholderTextColor="#777" accessibilityLabel={`${kind} address`} />
+              <TextInput style={styles.input} value={address} onFocus={() => { inputFocused.current = true; }} onBlur={() => { inputFocused.current = false; }} onChangeText={(value) => { setAddress(value); slideX.setValue(0); }} autoCapitalize="none" autoCorrect={false} placeholder={`Paste a Solana ${kind.toLowerCase()} address`} placeholderTextColor="#777" accessibilityLabel={`${kind} address`} />
               {checking && (
                 <SkeletonRows count={1} />
               )}
@@ -200,8 +233,8 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
         {showList && (
           <View style={styles.listOverlay}>
             <BlurView tint="dark" intensity={25} style={StyleSheet.absoluteFill} pointerEvents="none" />
-            <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowList(false)} accessibilityLabel="Back to blacklist search" />
-            <BlacklistListPanel onUnblocked={(entry) => { void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined); setConfirmation({ id: Date.now(), entry, status: "unblocked" }); }} onBack={() => setShowList(false)} onDragDown={() => setShowList(false)} />
+            <Pressable style={StyleSheet.absoluteFill} onPress={closeList} accessibilityLabel="Back to blacklist search" />
+            <BlacklistListPanel onUnblocked={(entry) => { void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined); setConfirmation({ id: Date.now(), entry, status: "unblocked" }); }} onBack={closeList} onDragDown={closeList} />
           </View>
         )}
         {confirmation && <View style={[StyleSheet.absoluteFill, { paddingTop: insets.top + 12, alignItems: "center", zIndex: 20 }]} accessibilityViewIsModal>
@@ -209,6 +242,7 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
           <TradeConfirmation key={confirmation.id} tokenName={confirmation.entry.name || confirmation.entry.kind} imageUrl={confirmation.entry.imageUrl} mint={confirmation.entry.kind === "Token" ? confirmation.entry.address : undefined} address={confirmation.entry.address} status={confirmation.status} mode={confirmation.status === "blocked" ? "sell" : "buy"} onDismiss={() => {
             setConfirmation(null);
             setAddress(""); setReasons([]); slideX.setValue(0);
+            if (confirmation.status === "blocked" && onBlockComplete) { onBlockComplete(); return; }
             setShowList(true);
           }} />
         </View>}
@@ -220,7 +254,7 @@ export default function BlacklistSheet({ visible, onClose }: Props) {
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.66)" },
   keyboard: { flex: 1, justifyContent: "flex-end" },
-  sheet: { backgroundColor: "#111407", borderTopLeftRadius: 29, borderTopRightRadius: 29, paddingHorizontal: 20, paddingTop: 5, paddingBottom: Platform.OS === "ios" ? 34 : 22, height: "88%", overflow: "hidden" },
+  sheet: { backgroundColor: "#111407", borderTopLeftRadius: 29, borderTopRightRadius: 29, paddingHorizontal: 20, paddingTop: 5, paddingBottom: Platform.OS === "ios" ? 34 : 22, flexShrink: 1, overflow: "hidden" },
   handleTouchArea: { height: 48, alignItems: "center", justifyContent: "center", paddingTop: 0 },
   handle: { width: 55, height: 5, borderRadius: 3, backgroundColor: "#393939" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 21 },

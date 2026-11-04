@@ -1,4 +1,5 @@
-import { ApiError, apiGet } from "./api";
+import { ApiError } from "./api";
+import { fetchTracerSnapshot } from "./tracer-snapshot";
 import { fetchBubbleMap } from "./stonk";
 import { scoreWithMapClusters } from "./risk-score";
 import type { BubbleMapData, TracerPayload } from "./types";
@@ -45,7 +46,7 @@ async function load(mint: string, onStoredScore: (score: number) => void) {
   const timeout = setTimeout(() => controller.abort(), 10_000);
   try {
     // No live-market overlays, analysis jobs, or polling for a small avatar badge.
-    const payloadRequest = apiGet<TracerPayload>(`/api/tracer/${encodeURIComponent(mint)}`, undefined, controller.signal).then((payload) => {
+    const payloadRequest = fetchTracerSnapshot(mint).then((payload) => {
       if (payload.mode === "token" && payload.token?.mint === mint) {
         const score = tracerRiskScore(payload);
         if (score !== null) onStoredScore(score);

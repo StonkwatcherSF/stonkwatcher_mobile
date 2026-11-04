@@ -1,13 +1,16 @@
+import { isOfficialToken, OFFICIAL_BLOCK_MESSAGE } from "../../../lib/official-tokens";
+import BlacklistSheet from "../../../components/BlacklistSheet";
+import BlacklistIcon from "../../../assets/icons/blacklist.svg";
 import { LocalizedText as Text, LocalizedAlert as Alert } from "../../../components/LocalizationContext";
 import { useBackgroundScroll } from "../../../components/AppBackground";
 import { Skeleton, SkeletonRows, SkeletonChart } from "../../../components/Skeleton";
 import React, { useRef, useState } from "react";
-import { View, ScrollView, Pressable, StyleSheet, useWindowDimensions } from "react-native";
+import { View, ScrollView, Pressable, StyleSheet, useWindowDimensions, Platform } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, BadgeCheck, Copy, Send, SlidersHorizontal } from "lucide-react-native";
+import { ArrowLeft, BadgeCheck, Copy, Send } from "lucide-react-native";
 import { COLORS, FONTS } from "../../../constants/theme";
 import TradeSheet from "../../../components/TradeSheet";
 import TradeConfirmation from "../../../components/TradeConfirmation";
@@ -18,10 +21,12 @@ import UserAvatar from "../../../components/UserAvatar";
 import PriceChart from "../../../components/PriceChart";
 import GlassButton from "../../../components/GlassButton";
 import TokensIcon from "../../../assets/icons/tokens.svg";
+import TokenInfoIcon from "../../../assets/icons/token-info.svg";
+import HolderRewardsIcon from "../../../assets/icons/holder-rewards.svg";
 import { tracerHref } from "../../../lib/nav";
 import { shareExternally } from "../../../utils/share";
 import ViewShot from "react-native-view-shot";
-import * as Sharing from "expo-sharing";
+import * as Sharing from "../../../utils/image-sharing";
 import HistoryIcon from "../../../assets/icons/transaction-history.svg";
 import WalletHistorySheet from "../../../components/WalletHistorySheet";
 import { useTokenMarket } from "../../../hooks/useTokenMarket";
@@ -85,7 +90,10 @@ function TokenInfoPanel({ info, loading }: { info: TokenInfoPayload | null; load
   return (
     <View style={styles.tokenInfoPanel}>
       <View style={styles.sectionHeading}>
-        <Text style={styles.sectionTitle}>Token Info <Text style={styles.sectionAccent}>♙</Text></Text>
+        <View style={styles.sectionLabel}>
+          <Text style={styles.sectionTitle}>Token Info</Text>
+          <TokenInfoIcon width={16} height={16} />
+        </View>
         {loading && !info ? <Skeleton width={50} height={10} /> : <Text style={styles.demoIndicator}>StonkFun</Text>}
       </View>
       {loading && !info ? (
@@ -101,7 +109,10 @@ function TokenInfoPanel({ info, loading }: { info: TokenInfoPayload | null; load
         ))}
       </View>
       <View style={[styles.sectionHeading, styles.rewardsHeading]}>
-        <Text style={styles.sectionTitle}>Holder Rewards <Text style={styles.sectionAccent}>♕</Text></Text>
+        <View style={styles.sectionLabel}>
+          <Text style={styles.sectionTitle}>Holder Rewards</Text>
+          <HolderRewardsIcon width={16} height={16} />
+        </View>
         <Text style={styles.sectionTime}>{rewards?.lastPayoutAt ? formatAge(rewards.lastPayoutAt) : "—"}</Text>
       </View>
       {rewards?.enabled === false ? (
@@ -133,8 +144,22 @@ export default function DexTokenScreen() {
   const positionShotRef = useRef<React.ElementRef<typeof ViewShot>>(null);
   const [sharingPosition, setSharingPosition] = useState(false);
   const [historyVisible, setHistoryVisible] = useState(false);
+  const [blacklistVisible, setBlacklistVisible] = useState(false);
+  const returnToTokens = useRef(false);
+  const finishBlacklist = () => {
+    if (!returnToTokens.current) return;
+    returnToTokens.current = false;
+    router.replace("/tokens");
+  };
   const { tokenId } = useLocalSearchParams<{ tokenId?: string | string[] }>();
   const mint = readRouteParam(tokenId);
+  const openBlacklist = () => {
+    if (isOfficialToken(mint)) {
+      Alert.alert("Official token", OFFICIAL_BLOCK_MESSAGE);
+      return;
+    }
+    setBlacklistVisible(true);
+  };
   const { width, height } = useWindowDimensions();
   const [period, setPeriod] = useState<Period>("1m");
   const [infoTab, setInfoTab] = useState<InfoTab>("Transactions");
@@ -298,13 +323,16 @@ export default function DexTokenScreen() {
             ) : null}
           </View>
           <View style={styles.chartTools}>
+            <View style={styles.tokenTools}>
             <GlassButton
               icon={<TokensIcon width={18} height={18} />}
               size={36}
               onPress={() => router.push(tracerHref(mint))}
               accessibilityLabel={`Open ${token.name} in Tracer`}
             />
-            <View style={styles.periodRow}>{PERIODS.map(p => <Pressable key={p} onPress={() => setPeriod(p)} style={[styles.periodButton, period === p && styles.selectedPeriod]}><Text style={[styles.periodText, period === p && styles.selectedText]}>{p}</Text></Pressable>)}<SlidersHorizontal size={17} color={COLORS.grey} style={{ marginLeft: 5 }} /></View>
+            <GlassButton icon={<BlacklistIcon width={18} height={18} />} size={36} onPress={openBlacklist} accessibilityLabel={`Blacklist ${token.name}`} />
+            </View>
+            <View style={styles.periodRow}>{PERIODS.map(p => <Pressable key={p} onPress={() => setPeriod(p)} style={[styles.periodButton, period === p && styles.selectedPeriod]}><Text style={[styles.periodText, period === p && styles.selectedText]}>{p}</Text></Pressable>)}</View>
           </View>
           {holding && holdingStats ? (
           <View ref={positionAnchorRef} collapsable={false} onLayout={(event) => { positionTop.current = event.nativeEvent.layout.y; }}>
@@ -383,6 +411,12 @@ export default function DexTokenScreen() {
           }}
         />
       )}
+      <BlacklistSheet visible={blacklistVisible} initialKind="Token" initialAddress={mint} onClose={() => setBlacklistVisible(false)} onDismiss={finishBlacklist} onBlockComplete={() => {
+        returnToTokens.current = true;
+        setBlacklistVisible(false);
+        // iOS presents the next modal after this native modal has finished dismissing.
+        if (Platform.OS !== "ios") finishBlacklist();
+      }} />
       {confirmedTrade !== null && (
         <View
           pointerEvents="none"
@@ -423,6 +457,7 @@ const styles = StyleSheet.create({
   chart: { marginHorizontal: -4, marginTop: 4, alignItems: "center", minHeight: 255 },
   chartOverlay: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
   chartEmpty: { color: COLORS.grey, fontSize: 12, textAlign: "center", marginVertical: 16 },
+  tokenTools: { flexDirection: "row", alignItems: "center", gap: 8 },
   chartTools: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 15 },
   periodRow: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 3 }, periodButton: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 3, backgroundColor: COLORS.stonkDarkG }, selectedPeriod: { backgroundColor: COLORS.stonkGreen }, periodText: { color: COLORS.grey, fontSize: 11 }, selectedText: { color: COLORS.black, fontWeight: "700" },
   positionOuter: { borderRadius: 12, padding: 4, marginBottom: 18 }, positionInner: { backgroundColor: "rgba(28,28,28,0.78)", borderRadius: 9, padding: 15 }, positionTitle: { color: COLORS.stonkGreen, fontSize: 13, fontFamily: FONTS.regular }, demoLabel: { color: COLORS.grey, fontSize: 10 }, positionValues: { flexDirection: "row", justifyContent: "space-between", marginTop: 7 }, positionAmount: { color: COLORS.white, fontSize: 23, fontWeight: "700" }, muted: { color: COLORS.grey, fontSize: 12, marginTop: 4 }, pnl: { color: COLORS.buy, fontSize: 19, fontWeight: "700" }, pnlBadge: { color: COLORS.buy, fontSize: 11, marginTop: 5 }, positionFoot: { flexDirection: "row", justifyContent: "space-between", marginTop: 20, flexWrap: "wrap" }, white: { color: COLORS.white, fontFamily: FONTS.regular, fontSize: 12 }, share: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, paddingVertical: 10, minHeight: 34 }, shareText: { color: COLORS.white, fontFamily: FONTS.regular, fontSize: 12 },
@@ -431,7 +466,7 @@ const styles = StyleSheet.create({
   tokenInfoPanel: { marginHorizontal: -15, paddingHorizontal: 15, paddingBottom: 14, backgroundColor: "#141414" },
   sectionHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 10 },
   sectionTitle: { color: COLORS.white, fontSize: 14, fontFamily: FONTS.regular, fontWeight: "700" },
-  sectionAccent: { color: COLORS.stonkGreen },
+  sectionLabel: { flexDirection: "row", alignItems: "center", gap: 4 },
   demoIndicator: { color: COLORS.grey, fontSize: 10 },
   metricGrid: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
   metricCard: { width: "32.5%", minHeight: 67, flexGrow: 1, backgroundColor: "#202020", borderRadius: 5, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, paddingVertical: 8 },

@@ -1,3 +1,4 @@
+import { isOfficialToken } from "../lib/official-tokens";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BLACKLIST_KEY } from "../lib/config";
@@ -88,7 +89,7 @@ export function BlacklistProvider({ children }: { children: React.ReactNode }) {
 
   const addEntry = useCallback((entry: Omit<BlacklistEntry, "id" | "addedAt">) => {
     const address = entry.address.trim();
-    if (!address) return false;
+    if (!address || isOfficialToken(address)) return false;
     if (entriesRef.current.some((item) => item.kind === entry.kind && item.address === address)) return false;
     const saved: BlacklistEntry = {
       ...entry,

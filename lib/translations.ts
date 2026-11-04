@@ -8,6 +8,8 @@ export function resolveLocale(preference: string, deviceLocale: string): AppLoca
 }
 // English keys stay readable in the UI code. Names, symbols, addresses and user content are never keys.
 const rows = `
+Official token|Offizieller Token|Token oficial|Jeton officiel|官方代币
+Official coins cannot be blacklisted.|Offizielle Token können nicht gesperrt werden.|Los tokens oficiales no pueden incluirse en la lista de bloqueo.|Les jetons officiels ne peuvent pas être ajoutés à la liste de blocage.|官方代币不能加入黑名单。
 Update required|Update erforderlich|Actualización obligatoria|Mise à jour obligatoire|需要更新
 Updating StonkWatcher. The app will restart automatically.|StonkWatcher wird aktualisiert. Die App startet automatisch neu.|Actualizando StonkWatcher. La aplicación se reiniciará automáticamente.|Mise à jour de StonkWatcher. L’application redémarrera automatiquement.|正在更新 StonkWatcher，应用将自动重启。
 The update could not be downloaded. Check your connection and retry.|Das Update konnte nicht heruntergeladen werden. Prüfe deine Verbindung und versuche es erneut.|No se pudo descargar la actualización. Comprueba tu conexión y vuelve a intentarlo.|Impossible de télécharger la mise à jour. Vérifiez votre connexion et réessayez.|无法下载更新，请检查网络连接后重试。
