@@ -1,5 +1,7 @@
+import { translateText } from "../lib/translations";
+import { useLocalization, LocalizedText as Text } from "./LocalizationContext";
 import React, { useCallback, useMemo, useState } from "react";
-import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { StyleSheet, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { useFocusEffect } from "expo-router";
 import Animated, { cancelAnimation, Easing, interpolate, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming, type SharedValue } from "react-native-reanimated";
 import { Glow, RevealChunk } from "./TracerAnalysisPanel";
@@ -8,11 +10,13 @@ const END = 2400;
 const DELAY = 0;
 
 export function PositionRevealText({ text, clock, start, style }: { text: string; clock: SharedValue<number>; start: number; style?: StyleProp<TextStyle> }) {
+  const { locale } = useLocalization();
   const chunks = useMemo(() => {
-    const words = text.match(/\S+\s*/g) ?? [text];
+    const localized = translateText(text, locale);
+    const words = localized.match(/\S+\s*/g) ?? [localized];
     const group = Math.max(1, Math.ceil(words.length / 32));
     return Array.from({ length: Math.ceil(words.length / group) }, (_, index) => words.slice(index * group, (index + 1) * group).join(""));
-  }, [text]);
+  }, [text, locale]);
   return <Text style={style} accessibilityLabel={text}>
     {chunks.map((chunk, index) => <RevealChunk key={index} text={chunk} clock={clock} start={start + index * 38} />)}
   </Text>;

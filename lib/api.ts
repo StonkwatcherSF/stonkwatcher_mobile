@@ -38,9 +38,11 @@ async function readError(response: Response) {
 export async function apiGet<T>(
   path: string,
   params?: Record<string, string | number | boolean | undefined>,
+  signal?: AbortSignal,
 ): Promise<T> {
   const response = await fetch(buildUrl(path, params), {
     method: "GET",
+    signal,
     headers: requestHeaders(),
   });
   if (!response.ok) throw new ApiError(await readError(response), response.status);

@@ -1,6 +1,7 @@
+import { LocalizedText as Text } from "./LocalizationContext";
 import { useBackgroundScroll } from "./AppBackground";
 import React from "react";
-import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
+import { View, Pressable, StyleSheet, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 export const lime = "#C5E600";

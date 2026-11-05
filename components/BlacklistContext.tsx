@@ -1,16 +1,17 @@
+import { isOfficialToken } from "../lib/official-tokens";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BLACKLIST_KEY } from "../lib/config";
 import { fetchTokenCreator } from "../lib/stonk";
 
 export type BlacklistKind = "Wallet" | "Token";
-export type BlacklistEntry = { id: string; address: string; kind: BlacklistKind; reasons: string[]; name?: string; imageUrl?: string; addedAt: number };
-type Store = { entries: BlacklistEntry[]; addEntry: (entry: Omit<BlacklistEntry, "id" | "addedAt">) => boolean; removeEntry: (id: string) => void };
 export type BlacklistEntry = {
   id: string;
   address: string;
   kind: BlacklistKind;
   reasons: string[];
+  name?: string;
+  imageUrl?: string;
   addedAt: number;
   devAddress?: string | null;
   label?: string | null;
@@ -88,7 +89,7 @@ export function BlacklistProvider({ children }: { children: React.ReactNode }) {
 
   const addEntry = useCallback((entry: Omit<BlacklistEntry, "id" | "addedAt">) => {
     const address = entry.address.trim();
-    if (!address) return false;
+    if (!address || isOfficialToken(address)) return false;
     if (entriesRef.current.some((item) => item.kind === entry.kind && item.address === address)) return false;
     const saved: BlacklistEntry = {
       ...entry,

@@ -1,3 +1,5 @@
+import { LocalizationProvider } from "../components/LocalizationContext";
+import AppUpdates from "../components/AppUpdates";
 import { AppBackgroundProvider } from "../components/AppBackground";
 import { SkeletonPage } from "../components/Skeleton";
 
@@ -12,7 +14,7 @@ import { AuthProvider } from "../components/AuthContext";
 const APP_THEME = { ...DarkTheme, colors: { ...DarkTheme.colors, background: "transparent" } };
 
 export default function RootLayout() {
-  return <ThemeProvider value={APP_THEME}><AppBackgroundProvider><RootContent /></AppBackgroundProvider></ThemeProvider>;
+  return <ThemeProvider value={APP_THEME}><LocalizationProvider><AppBackgroundProvider><RootContent /></AppBackgroundProvider></LocalizationProvider></ThemeProvider>;
 }
 
 function RootContent() {
@@ -42,6 +44,7 @@ function RootContent() {
   return (
     <AuthProvider>
       <StatusBar style="light" />
+      <AppUpdates />
 
       <Stack
         screenOptions={{

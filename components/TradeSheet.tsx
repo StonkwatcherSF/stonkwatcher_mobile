@@ -1,22 +1,15 @@
+import SwapAmountText from "./SwapAmountText";
+import SwapIcon from "../assets/icons/amount-swap.svg";
+import { formatTokenEntry, amountValues, editTradeAmount, percentageTradeAmount, swapTradeAmount, withinTradeBalance, type TradeAmount } from "../lib/trade-amount";
+import { LocalizedAlert as Alert, LocalizedText as Text } from "./LocalizationContext";
 import { useBackgroundScroll } from "./AppBackground";
 import { SkeletonRows } from "./Skeleton";
 import * as Haptics from "expo-haptics";
 import React, { useRef, useState, useEffect, } from "react";
-import {
-    Alert,
-    Animated,
-    Dimensions,
-    PanResponder,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
-} from "react-native";
+import { Animated, Dimensions, PanResponder, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import {
-    ArrowLeftRight,
     BadgeCheck,
     Delete,
     ChevronsRight,
@@ -183,7 +176,8 @@ export default function TradeSheet({
           ? positionValue(holding, livePrice)
           : 0;
 
-    const [amount, setAmount] = useState("");
+    const [amount, setAmount] = useState<TradeAmount>({ unit: "usd", text: "" });
+    const [swapVersion, setSwapVersion] = useState(0);
     const [selectedPercent, setSelectedPercent] =
         useState<number | null>(null);
     const [sliderWidth, setSliderWidth] = useState(0);
@@ -198,11 +192,16 @@ export default function TradeSheet({
         extrapolate: "clamp",
     });
 
-    const numericAmount = Number(amount) || 0;
-    const validAmount =
-        numericAmount > 0 && numericAmount <= available;
-
-    const tokenAmount = livePrice > 0 ? numericAmount / livePrice : 0;
+    const { usd: numericAmount, tokens: tokenAmount } = amountValues(amount, livePrice);
+    const validAmount = withinTradeBalance(numericAmount, available);
+    const canSwap = Number.isFinite(livePrice) && livePrice > 0;
+    const primaryText = amount.unit === "usd"
+        ? `$${amount.text ? formatMoney(numericAmount) : "0"}`
+        : formatTokenEntry(amount.text);
+    const secondaryText = amount.unit === "usd"
+        ? `${formatTokenAmount(tokenAmount)} ${symbol}`
+        : `${formatMoney(numericAmount)} USD`;
+    const submittedUsd = Math.min(numericAmount, available);
     const estimatedOutput = Math.max(
         0,
         numericAmount - MOCK_TRADE_FEE
@@ -234,7 +233,7 @@ export default function TradeSheet({
             symbol,
             imageUrl: logo,
             verified: tokenVerified === true,
-            amountUsd: numericAmount,
+            amountUsd: submittedUsd,
             priceUsd: livePrice,
             marketCapUsd: liveMcap,
         });
@@ -251,7 +250,7 @@ export default function TradeSheet({
         );
 
         if (onTradeConfirmed) {
-            onTradeConfirmed(mode, tokenId, numericAmount);
+            onTradeConfirmed(mode, tokenId, submittedUsd);
         } else {
             closingRef.current = false;
             closeSheetRef.current();
@@ -317,32 +316,29 @@ export default function TradeSheet({
 
     function appendDigit(digit: string) {
         setSelectedPercent(null);
-        setAmount((previous) => {
-            if (digit === ".") {
-                if (previous.includes(".")) return previous;
-                return previous ? `${previous}.` : "0.";
-            }
-
-            const decimals = previous.split(".")[1];
-            if (decimals !== undefined && decimals.length >= 2) {
-                return previous;
-            }
-
-            if (previous === "0") return digit;
-            return `${previous}${digit}`;
-        });
+        setSwapVersion(0);
+        setAmount((previous) => editTradeAmount(previous, digit));
         resetSlider();
     }
 
     function deleteDigit() {
         setSelectedPercent(null);
-        setAmount((previous) => previous.slice(0, -1));
+        setSwapVersion(0);
+        setAmount((previous) => editTradeAmount(previous, "delete"));
         resetSlider();
     }
 
     function selectPercentage(percent: number) {
         setSelectedPercent(percent);
-        setAmount(((available * percent) / 100).toFixed(2));
+        setSwapVersion(0);
+        setAmount((previous) => percentageTradeAmount(previous, available, livePrice, percent));
+        resetSlider();
+    }
+
+    function swapAmountUnit() {
+        if (!canSwap || closingRef.current) return;
+        setAmount((previous) => swapTradeAmount(previous, livePrice));
+        setSwapVersion((version) => version + 1);
         resetSlider();
     }
 
@@ -398,7 +394,7 @@ export default function TradeSheet({
 
                         <View style={styles.tokenDetails}>
                             <View style={styles.nameRow}>
-                                <Text
+                                <Text localize={false}
                                     style={styles.tokenName}
                                     numberOfLines={1}
                                 >
@@ -428,25 +424,12 @@ export default function TradeSheet({
                     </View>}
 
                     <View style={styles.amountSection}>
-                        <Text
-                            style={[
-                                styles.amountText,
-                                !validAmount && styles.emptyAmount,
-                            ]}
-                            adjustsFontSizeToFit
-                            numberOfLines={1}
-                        >
-                            ${amount ? formatMoney(numericAmount) : "0"}
-                        </Text>
-
+                        <SwapAmountText text={primaryText} swapVersion={swapVersion} style={[styles.amountText, !validAmount && styles.emptyAmount]} />
                         <View style={styles.tokenQuantityRow}>
-                            <Text style={styles.tokenQuantity}>
-                                {formatTokenAmount(tokenAmount)} {prettySymbol(symbol)}
-                            </Text>
-                            <ArrowLeftRight
-                                size={17}
-                                color={COLORS.grey}
-                            />
+                            <SwapAmountText text={secondaryText} swapVersion={swapVersion} style={styles.tokenQuantity} secondary />
+                            <Pressable onPress={swapAmountUnit} disabled={!canSwap} hitSlop={14} style={[styles.swapButton, !canSwap && { opacity: 0.35 }]} accessibilityRole="button" accessibilityLabel={amount.unit === "usd" ? "Enter amount in tokens" : "Enter amount in USD"} accessibilityState={{ disabled: !canSwap }}>
+                                <SwapIcon />
+                            </Pressable>
                         </View>
                     </View>
 
@@ -562,7 +545,7 @@ export default function TradeSheet({
                             <Text style={styles.detailLabel}>
                                 Estimated Output
                             </Text>
-                            <Text
+                            <Text localize={false}
                                 style={[
                                     styles.detailValue,
                                     validAmount && {
@@ -757,8 +740,9 @@ const styles = StyleSheet.create({
     },
     amountText: {
         color: COLORS.white,
-        fontSize: 45,
-        fontWeight: "700",
+        fontSize: 40,
+        lineHeight: 44,
+        fontWeight: "600",
         fontFamily: FONTS.regular,
     },
     emptyAmount: {
@@ -767,12 +751,14 @@ const styles = StyleSheet.create({
     tokenQuantityRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 10,
-        marginTop: 4,
+        gap: 4,
+        maxWidth: "100%",
+        marginTop: 8,
     },
+    swapButton: { width: 16, height: 16, alignItems: "center", justifyContent: "center" },
     tokenQuantity: {
         color: COLORS.grey,
-        fontSize: 15,
+        fontSize: 12,
     },
     availableRow: {
         flexDirection: "row",

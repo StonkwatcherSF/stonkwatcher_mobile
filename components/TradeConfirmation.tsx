@@ -1,12 +1,8 @@
+import { LocalizedText as Text } from "./LocalizationContext";
+import { truncateAddress } from "../lib/solana";
 
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Animated,
-  Easing,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Animated, Easing, StyleSheet, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import AnimatedAmount from "./AnimatedAmount";
 import ConfirmationCelebration from "./ConfirmationCelebration";
@@ -17,6 +13,8 @@ import { useReducedMotion } from "react-native-reanimated";
 import ConfirmationWarp, { type WarpFlight, type WarpTarget } from "./ConfirmationWarp";
 
 type Props = {
+  status?: "blocked" | "unblocked";
+  address?: string;
   tokenName?: string;
   imageUrl?: string | null;
   mint?: string;
@@ -31,6 +29,8 @@ const BANNER_HEIGHT = 64;
 const LIME = "#C6E900";
 
 export default function TradeConfirmation({
+  status,
+  address,
   tokenName = "Stonk Watcher",
   imageUrl,
   mint,
@@ -108,7 +108,7 @@ export default function TradeConfirmation({
 
     const dismissTimer = setTimeout(() => {
       void (async () => {
-        if (mode === "sell") {
+        if (mode === "sell" || status) {
           if (reduceMotion) { dismissRef.current?.(); return; }
           setDisintegrating(true);
           Animated.timing(dissolve, { toValue: 1, duration: 980, easing: Easing.linear, useNativeDriver: true }).start(({ finished }) => {
@@ -152,6 +152,7 @@ export default function TradeConfirmation({
     fallbackWarp,
     dissolve,
     mode,
+    status,
     reduceMotion,
   ]);
 
@@ -190,6 +191,7 @@ export default function TradeConfirmation({
         layoutStyle={{ width: expansion }}
         style={[
           styles.banner,
+          status && { borderColor: status === "blocked" ? "#FF0000" : LIME, backgroundColor: status === "blocked" ? "#160000" : "#101500" },
           { width: "100%" },
           stage === "loading" && styles.loadingBanner,
         ]}
@@ -207,7 +209,7 @@ export default function TradeConfirmation({
           {stage === "loading" && (
             <Animated.View style={[styles.loadingRing, { transform: [{ rotate: spin }] }]}>
               <Svg width={64} height={64} viewBox="0 0 64 64">
-                <Circle cx={32} cy={32} r={29} stroke={LIME} strokeWidth={3} strokeLinecap="round" strokeDasharray="38 145" fill="none" />
+                <Circle cx={32} cy={32} r={29} stroke={status === "blocked" ? "#FF0000" : LIME} strokeWidth={3} strokeLinecap="round" strokeDasharray="38 145" fill="none" />
               </Svg>
             </Animated.View>
           )}
@@ -221,19 +223,21 @@ export default function TradeConfirmation({
               { opacity: contentOpacity },
             ]}
           >
-            <Text
+            <Text localize={false}
               style={styles.tokenName}
               numberOfLines={1}
             >
               {tokenName}
             </Text>
 
+            {status ? <BlacklistStatus status={status} address={address ?? ""} onComplete={onAmountComplete} /> : (
             <AnimatedAmount
               amount={signedAmount}
               duration={650}
               style={styles.amount}
               onComplete={onAmountComplete}
             />
+            )}
           </Animated.View>
         )}
         </>}
@@ -247,7 +251,22 @@ export default function TradeConfirmation({
   );
 }
 
+function BlacklistStatus({ status, address, onComplete }: { status: "blocked" | "unblocked"; address: string; onComplete: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onComplete, 650);
+    return () => clearTimeout(timer);
+  }, [onComplete]);
+  const blocked = status === "blocked";
+  return <View style={styles.statusContent}>
+    <Text localize={false} style={styles.address}>{truncateAddress(address, 3)}</Text>
+    <Text style={[styles.statusTag, { borderColor: blocked ? "#FF0000" : LIME, backgroundColor: blocked ? "#780000" : "#263200" }]}>{blocked ? "Blocked" : "Unblocked"}</Text>
+  </View>;
+}
+
 const styles = StyleSheet.create({
+  statusContent: { flexDirection: "row", alignItems: "center", gap: 6 },
+  address: { color: "#FFFFFF", fontSize: 11, fontWeight: "600" },
+  statusTag: { color: "#FFFFFF", fontSize: 9, borderWidth: 1, borderRadius: 2, padding: 4 },
   dissolveClip: { width: BANNER_WIDTH, overflow: "hidden", alignItems: "center" },
   dissolveContent: { width: BANNER_WIDTH, alignItems: "center" },
   container: {

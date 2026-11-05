@@ -1,6 +1,7 @@
+import { LocalizedText as Text } from "../../components/LocalizationContext";
 import { SkeletonPage } from "../../components/Skeleton";
 import React, { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { Redirect, useLocalSearchParams } from "expo-router";
 import * as Linking from "expo-linking";
 import { createSessionFromUrl } from "../../lib/auth";

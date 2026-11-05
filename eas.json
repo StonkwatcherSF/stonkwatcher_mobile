@@ -9,17 +9,20 @@
       "environment": "preview",
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "uat"
     },
     "ios-simulator": {
       "extends": "uat",
       "ios": {
         "simulator": true
-      }
+      },
+      "channel": "ios-simulator"
     },
     "production": {
       "distribution": "store",
-      "environment": "production"
+      "environment": "production",
+      "channel": "production"
     }
   }
 }

@@ -1,6 +1,7 @@
+import { LocalizedText as Text } from "./LocalizationContext";
 import { SkeletonMap } from "./Skeleton";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { PanResponder, StyleSheet, Text, View } from "react-native";
+import { PanResponder, StyleSheet, View } from "react-native";
 import Svg, { Circle, G, Line, Text as SvgLabel } from "react-native-svg";
 import {
   ALPHA_DECAY,

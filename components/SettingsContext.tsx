@@ -1,4 +1,9 @@
-import React, { createContext, useContext, useState } from "react";
+import { useLocalization } from "./LocalizationContext";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { restoreProfileAvatar } from "../utils/profile-avatar";
+
+const AVATAR_KEY = "stonkwatcher.profile-avatar.v1";
 
 type Preferences = {
   name: string;
@@ -35,8 +40,34 @@ const C = createContext<{
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [prefs, setPrefs] = useState(initial);
+  const avatarChanged = useRef(false);
+  const avatarWrite = useRef(Promise.resolve());
+  const { preference, saveLanguage } = useLocalization();
+  useEffect(() => {
+    let cancelled = false;
+    void AsyncStorage.getItem(AVATAR_KEY).then((saved) => {
+      if (cancelled || avatarChanged.current || !saved) return;
+      const avatarUri = restoreProfileAvatar(saved);
+      setPrefs((current) => ({ ...current, avatarUri }));
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
+
+  const update = (x: Partial<Preferences>) => {
+    if (x.language) void saveLanguage(x.language).catch(() => undefined);
+    if (x.avatarUri !== undefined) {
+      avatarChanged.current = true;
+      const uri = x.avatarUri;
+      // Serialize writes so a slower earlier photo cannot overwrite the latest one.
+      avatarWrite.current = avatarWrite.current.then(() => uri
+        ? AsyncStorage.setItem(AVATAR_KEY, uri)
+        : AsyncStorage.removeItem(AVATAR_KEY)
+      ).catch(() => undefined);
+    }
+    setPrefs((p) => ({ ...p, ...x }));
+  };
   return (
-    <C.Provider value={{ prefs, update: (x) => setPrefs((p) => ({ ...p, ...x })) }}>
+    <C.Provider value={{ prefs: { ...prefs, language: preference }, update }}>
       {children}
     </C.Provider>
   );

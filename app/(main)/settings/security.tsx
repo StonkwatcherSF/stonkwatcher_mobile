@@ -1,12 +1,7 @@
+import { LocalizedText as Text, LocalizedAlert as Alert } from "../../../components/LocalizationContext";
 
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  Switch,
-  Alert,
-  StyleSheet,
-} from "react-native";
+import { View, Switch, StyleSheet } from "react-native";
 import { Page, lime } from "../../../components/SettingsUI";
 import { useSettings } from "../../../components/SettingsContext";
 

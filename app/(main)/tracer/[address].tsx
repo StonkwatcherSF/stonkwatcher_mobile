@@ -1,15 +1,9 @@
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../../components/LocalizationContext";
+import { publishTokenRisk } from "../../../lib/token-risk";
 import { useBackgroundScroll } from "../../../components/AppBackground";
 import { Skeleton, SkeletonGroup, SkeletonPage } from "../../../components/Skeleton";
-import React, { useMemo, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -190,6 +184,9 @@ export default function TracerAnalysisScreen() {
     });
   }, [mapData, token]);
   const score = liveScore?.score ?? token?.brief.score ?? null;
+  useEffect(() => {
+    if (token?.mint && data) publishTokenRisk(token.mint, score ?? intel?.score ?? null);
+  }, [token?.mint, data, score, intel?.score]);
   const breakdown = liveScore?.breakdown ?? token?.brief.breakdown ?? [];
   const creatorNode = mapData?.nodes?.find((node) => node.isCreator);
   const supply = token?.supply ?? mapData?.summary?.supply ?? null;
@@ -300,8 +297,8 @@ export default function TracerAnalysisScreen() {
             <TokenImage uri={token?.brief.imageUrl} mint={token?.mint || address} style={styles.tokenAvatarImage} />
           </View>
           <View style={styles.tokenIdentity}>
-            <Text style={styles.tokenTitle}>{title}</Text>
-            <Text style={styles.tokenSymbol}>{symbol}</Text>
+            <Text localize={false} style={styles.tokenTitle}>{title}</Text>
+            <Text localize={false} style={styles.tokenSymbol}>{symbol}</Text>
           </View>
           <View style={styles.badges}>
             {quote ? <Text style={styles.ttwoBadge}>◉ {quote}</Text> : null}
@@ -380,32 +377,6 @@ export default function TracerAnalysisScreen() {
             ready={Boolean(data)}
             visible={analysisVisible}
           />
-        <View style={styles.riskCard}>
-          <View style={styles.riskRing}><View style={styles.riskRingInner} /></View>
-          <View style={styles.riskText}>
-            <Text style={styles.riskLabel}>Risk Score</Text>
-            <Text style={styles.riskValue}>
-              {score != null ? `${Math.round(score)} / 100` : analyzing ? "Scoring…" : "— / 100"}
-            </Text>
-          </View>
-          <Text style={styles.riskBadge}>{score != null ? riskLabel(score) : "Unscored"}</Text>
-        </View>
-
-        <View style={styles.analysisPanel}>
-          <View style={styles.iconHeading}><StonkIcon width={18} height={18} /><Text style={styles.limeHeading}>Analysis</Text></View>
-          <View style={styles.analysisBody}>
-            <Text style={styles.analysisDisclaimer}>This is a transparent behavioral index, not a determination that anyone is a rug-puller.</Text>
-            {signals.length ? signals.map((item, index) => (
-              <View key={`${item.score}-${index}`} style={styles.signalRow}>
-                <Text style={styles.signalScore}>{item.score}</Text>
-                <Text style={styles.signalText}>{item.message}</Text>
-              </View>
-            )) : (
-              <Text style={styles.signalText}>
-                {analyzing || bubbleLoading ? "Score appears after analysis finishes." : "No behavioral signals for this launch yet."}
-              </Text>
-            )}
-          </View>
         </View>
 
         {!isWallet ? (
@@ -501,7 +472,7 @@ export default function TracerAnalysisScreen() {
                       >
                         <Text style={styles.holderRank}>#{member.rank}</Text>
                         <View style={[styles.holderDot, { backgroundColor: member.isCreator ? "#f2c94c" : member.pal.fill }]} />
-                        <Text style={styles.holderAddress} numberOfLines={1}>
+                        <Text localize={false} style={styles.holderAddress} numberOfLines={1}>
                           {member.isCreator ? "Dev" : truncateAddress(member.address || member.label)}
                           {member.isMagic ? " · Magic" : ""}
                           {member.clusterKind && member.clusterKind !== "organic" ? ` · ${member.clusterKind}` : ""}

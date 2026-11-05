@@ -1,17 +1,7 @@
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../../../components/LocalizationContext";
 
 import React, { useRef, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  PanResponder,
-  Animated,
-  LayoutChangeEvent,
-} from "react-native";
+import { View, Pressable, StyleSheet, KeyboardAvoidingView, Platform, PanResponder, Animated, LayoutChangeEvent } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -269,7 +259,7 @@ export default function WithdrawDetails() {
               </Animated.View>
             )}
 
-            <Text
+            <Text localize={false}
               pointerEvents="none"
               style={s.sliderLabel}
             >

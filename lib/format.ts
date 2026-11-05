@@ -1,3 +1,4 @@
+import { riskBrand } from "./risk-brand";
 export function formatUsdMoney(value?: number | null) {
   if (value == null || !Number.isFinite(value)) return "$0.00";
   const sign = value < 0 ? "-" : "";
@@ -96,11 +97,7 @@ export function prettySymbol(symbol?: string | null) {
 }
 
 export function riskLabel(score?: number | null) {
-  if (score == null || !Number.isFinite(score)) return "Unscored";
-  if (score >= 76) return "Critical Risk";
-  if (score >= 51) return "High Risk";
-  if (score >= 26) return "Moderate Risk";
-  return "Low Risk";
+  return riskBrand(score).label;
 }
 
 export function intelScoreLabel(label?: "healthy" | "mixed" | "concentrated" | null, score?: number | null) {

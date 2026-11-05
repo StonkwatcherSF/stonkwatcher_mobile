@@ -1,22 +1,14 @@
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../../components/LocalizationContext";
+import SearchSparkline from "../../../components/SearchSparkline";
 import TokenCardPressable from "../../../components/TokenCardPressable";
 import { Skeleton, SkeletonGroup, SkeletonRows } from "../../../components/Skeleton";
 import React, { useEffect, useState } from "react";
-import {
-  Animated,
-  Keyboard,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Animated, Keyboard, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { BadgeCheck, Search, X } from "lucide-react-native";
 import { useBlacklist } from "../../../components/BlacklistContext";
 import { useNavScroll } from "../../../components/NavAnimationContext";
-import TokenImage from "../../../components/TokenImage";
+import TokenImage from "../../../components/TokenRiskImage";
 import {
   useDebouncedValue,
   useSearchRecents,
@@ -46,6 +38,7 @@ type SearchItem = {
   change: number;
   positive: boolean;
   chart?: boolean;
+  spot?: number;
 };
 
 function toItem(token: StonkFunToken): SearchItem {
@@ -59,6 +52,7 @@ function toItem(token: StonkFunToken): SearchItem {
     imageUrl: token.imageUrl || token.logoUrl,
     verified: token.verified === true,
     price: formatPrice(token.market?.priceUsd),
+    spot: token.market?.priceUsd,
     change,
     positive: change >= 0,
     chart: true,
@@ -81,27 +75,6 @@ function fromRecent(item: SearchRecent): SearchItem {
   };
 }
 
-function Sparkline({ positive }: { positive: boolean }) {
-  const points = positive
-    ? [22, 12, 26, 17, 31, 23, 33, 13, 25, 29, 19, 36, 27, 39]
-    : [25, 33, 18, 28, 23, 32, 12, 29, 17, 21, 14, 17, 10, 12];
-  const color = positive ? GREEN : RED;
-  return (
-    <View style={styles.chart} accessible={false}>
-      {points.slice(0, -1).map((p, i) => {
-        const next = points[i + 1];
-        const dx = 4;
-        const dy = next - p;
-        const length = Math.sqrt(dx * dx + dy * dy);
-        const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-        return (
-          <View key={i} style={{ position: "absolute", left: i * 4, bottom: p, width: length, height: 1.3, backgroundColor: color, transform: [{ rotate: `${-angle}deg` }] }} />
-        );
-      })}
-    </View>
-  );
-}
-
 function ResultRow({ item, onPress }: { item: SearchItem; onPress: () => void }) {
   return (
     <TokenCardPressable style={styles.row} onPress={onPress} accessibilityRole="button" accessibilityLabel={`View ${item.name}`}>
@@ -110,12 +83,12 @@ function ResultRow({ item, onPress }: { item: SearchItem; onPress: () => void })
       </View>
       <View style={styles.info}>
         <View style={styles.nameLine}>
-          <Text numberOfLines={1} style={styles.name}>{item.name}</Text>
+          <Text localize={false} numberOfLines={1} style={styles.name}>{item.name}</Text>
           {item.verified === true && <BadgeCheck size={13} color={LIME} />}
         </View>
         <Text numberOfLines={1} style={styles.subtitle}>{item.subtitle}</Text>
       </View>
-      {item.chart && <Sparkline positive={item.positive} />}
+      {item.chart && <SearchSparkline mint={item.id} spot={item.spot} />}
       <View style={styles.priceBlock}>
         <Text style={styles.price}>{item.price}</Text>
         <Text style={[styles.change, { color: item.positive ? GREEN : RED }]}>
@@ -272,7 +245,6 @@ const styles = StyleSheet.create({
   nameLine: { flexDirection: "row", alignItems: "center", gap: 4 },
   name: { color: "#FFFFFF", fontSize: 12, fontWeight: "700", flexShrink: 1 },
   subtitle: { color: "#B7B7B7", fontSize: 10, marginTop: 5 },
-  chart: { width: 54, height: 47, overflow: "hidden", marginRight: 1 },
   priceBlock: { minWidth: 77, alignItems: "flex-end" },
   price: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
   change: { fontSize: 10, marginTop: 6 },

@@ -1,17 +1,8 @@
+import { LocalizedAlert as Alert, LocalizedText as Text } from "./LocalizationContext";
 import { useBackgroundScroll } from "./AppBackground";
 
 import React, { useEffect, useRef } from "react";
-import {
-  Alert,
-  Animated,
-  PanResponder,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Animated, PanResponder, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ArrowLeft } from "lucide-react-native";
 import BlacklistIcon from "../assets/icons/carbon_disable-step.svg";
 import { truncateAddress } from "../lib/solana";
@@ -29,6 +20,7 @@ const ACTION_WIDTH = 92;
 type Props = {
   onBack: () => void;
   onDragDown?: () => void;
+  onUnblocked?: (entry: BlacklistEntry) => void;
 };
 
 function SwipeableEntry({
@@ -154,14 +146,14 @@ function SwipeableEntry({
         </View>
 
         <View style={styles.entryText}>
-          <Text
+          <Text localize={false}
             style={styles.kind}
             numberOfLines={1}
           >
             {entry.name || (entry.kind === "Token" ? "Blacklisted Token" : "Blacklisted Wallet")}
           </Text>
 
-          <Text
+          <Text localize={false}
             style={styles.address}
             numberOfLines={1}
           >
@@ -194,6 +186,7 @@ function SwipeableEntry({
 export default function BlacklistListPanel({
   onBack,
   onDragDown,
+  onUnblocked,
 }: Props) {
   const backgroundScroll = useBackgroundScroll();
   const { entries, removeEntry } =
@@ -285,8 +278,7 @@ export default function BlacklistListPanel({
         },
         {
           text: "Unblock",
-          onPress: () =>
-            removeEntry(entry.id),
+          onPress: () => { removeEntry(entry.id); onUnblocked?.(entry); },
         },
       ]
     );

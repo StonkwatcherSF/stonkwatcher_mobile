@@ -1,18 +1,8 @@
+import { LocalizedText as Text } from "./LocalizationContext";
 import { useBackgroundScroll } from "./AppBackground";
 
 import React, { useEffect, useRef } from "react";
-import {
-    Animated,
-    Dimensions,
-    Modal,
-    PanResponder,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
-} from "react-native";
+import { Animated, Dimensions, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { BadgeCheck } from "lucide-react-native";
@@ -124,7 +114,7 @@ function TransactionRow({
             {/* TOKEN NAME AND DATE */}
             <View style={styles.transactionMiddle}>
                 <View style={styles.nameRow}>
-                    <Text
+                    <Text localize={false}
                         style={styles.tokenName}
                         numberOfLines={1}
                     >

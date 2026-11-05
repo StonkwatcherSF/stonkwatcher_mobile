@@ -1,14 +1,7 @@
+import { LocalizedText as Text } from "../components/LocalizationContext";
 
 import React from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  SafeAreaView,
-  StatusBar,
-  useWindowDimensions,
-} from "react-native";
+import { View, Pressable, StyleSheet, SafeAreaView, StatusBar, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
 import Svg, {
   Defs,

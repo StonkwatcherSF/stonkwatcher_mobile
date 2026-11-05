@@ -1,11 +1,7 @@
+import { LocalizedText as Text } from "./LocalizationContext";
 
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Animated,
-  Easing,
-  Text,
-  type TextStyle,
-} from "react-native";
+import { Animated, Easing, type TextStyle } from "react-native";
 
 type Props = {
   amount: number;
