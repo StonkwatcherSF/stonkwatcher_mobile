@@ -18,6 +18,7 @@ import { BlurView } from "expo-blur";
 import { COLORS, FONTS } from "../constants/theme";
 import TokenImage from "./TokenImage";
 import { usePortfolio, positionPnl, positionValue } from "./PortfolioContext";
+import { useSettings } from "./SettingsContext";
 import { useTokenMarket } from "../hooks/useTokenMarket";
 import { MOCK_TRADE_FEE } from "../lib/config";
 import { compactUsd, formatPrice, formatTokenAmount, prettySymbol } from "../lib/format";
@@ -70,6 +71,7 @@ export default function TradeSheet({
 }: Props) {
     const router = useRouter();
   const backgroundScroll = useBackgroundScroll();
+    const { prefs } = useSettings();
     const { cash, buy, sell, positionFor } = usePortfolio();
     const mint = isSolanaAddress(tokenId) ? tokenId : "";
     const { data: detail, loading: detailLoading } = useTokenMarket(mint || undefined);
@@ -218,6 +220,11 @@ export default function TradeSheet({
 
     function confirmDemoTrade() {
         if (!validAmount || closingRef.current) return;
+        if (!prefs.paperTrade) {
+            Alert.alert("Paper Trade off", "Turn on Paper Trade in Profile and save to get a $10,000 demo balance.");
+            resetSlider();
+            return;
+        }
         if (!(livePrice > 0)) {
             Alert.alert("Demo trade", "No live price yet for this token.");
             return;

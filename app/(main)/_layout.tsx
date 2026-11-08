@@ -1,9 +1,9 @@
-
 import React from "react";
 import { View, StyleSheet } from "react-native";
-import { Stack, usePathname } from "expo-router";
+import { Redirect, Stack, usePathname } from "expo-router";
 
 import BottomNav from "../../components/BottomNav";
+import { useAuth } from "../../components/AuthContext";
 import {
   NavAnimationProvider,
 } from "../../components/NavAnimationContext";
@@ -16,8 +16,23 @@ import {
 import {
   PortfolioProvider,
 } from "../../components/PortfolioContext";
+import { SkeletonPage } from "../../components/Skeleton";
 
 export default function MainLayout() {
+  const { loading, isSignedIn } = useAuth();
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <SkeletonPage />
+      </View>
+    );
+  }
+
+  if (!isSignedIn) {
+    return <Redirect href="/login" />;
+  }
+
   return (
     <NavAnimationProvider>
       <BlacklistProvider>

@@ -4,6 +4,7 @@ import { View, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { ChevronRight } from "lucide-react-native";
 import { Page } from "../../../components/SettingsUI";
+import { useAuth } from "../../../components/AuthContext";
 
 import ProfileIcon from "../../../assets/icons/carbon_user-avatar-filled-alt.svg";
 import NotificationIcon from "../../../assets/icons/carbon_notification.svg";
@@ -35,6 +36,7 @@ const rows = [
 
 export default function SettingsHome() {
   const router = useRouter();
+  const { signOut } = useAuth();
   const open = (route: string, label: string) => {
     if (route === "blacklist") router.push("/blacklist/list" as any);
     else if (["telegram", "x", "website", "legal", "help"].includes(route))
@@ -55,7 +57,9 @@ export default function SettingsHome() {
       <Text style={styles.version}>v1.0.0.0  demo</Text>
       <Pressable
         style={styles.logout}
-        onPress={() => router.replace("/login")}
+        onPress={() => {
+          void signOut().finally(() => router.replace("/login"));
+        }}
         accessibilityRole="button"
         accessibilityLabel="Log out of demo"
       >

@@ -1,21 +1,34 @@
 import { LocalizedText as Text, LocalizedTextInput as TextInput, LocalizedAlert as Alert } from "../../../components/LocalizationContext";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Pressable, StyleSheet, Switch } from "react-native";
 import { Settings } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Page, st, lime } from "../../../components/SettingsUI";
+import { useAuth } from "../../../components/AuthContext";
+import { usePortfolio } from "../../../components/PortfolioContext";
 import { useSettings } from "../../../components/SettingsContext";
 import UserAvatar from "../../../components/UserAvatar";
+import { providerTitle } from "../../../lib/demo-account";
+import { PAPER_TRADE_CASH } from "../../../lib/config";
 import { saveProfileAvatar } from "../../../utils/profile-avatar";
 
 const usernameValue = (value: string) => value.replace(/[@\s]/gu, "");
 
 export default function Profile() {
   const { prefs, update } = useSettings();
+  const { demoAccount, updateDemoAccount } = useAuth();
+  const { grantPaperCash, paperFunded } = usePortfolio();
   const [name, setName] = useState(prefs.name);
   const [username, setUsername] = useState(() => usernameValue(prefs.username));
   const [bio, setBio] = useState(prefs.bio);
   const [paperTrade, setPaperTrade] = useState(prefs.paperTrade);
+
+  useEffect(() => {
+    setName(prefs.name);
+    setUsername(usernameValue(prefs.username));
+    setBio(prefs.bio);
+    setPaperTrade(prefs.paperTrade);
+  }, [prefs.name, prefs.username, prefs.bio, prefs.paperTrade]);
 
   const pickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -53,7 +66,25 @@ export default function Profile() {
           return;
         }
         update({ name, username: `@${handle}`, bio, paperTrade });
-        Alert.alert("Saved", "Demo profile updated for this session.");
+        if (paperTrade) {
+          const funded = grantPaperCash();
+          if (funded) {
+            void updateDemoAccount({ paperTrade: true, paperFunded: true });
+            Alert.alert(
+              "Saved",
+              `Paper trading is on. $${PAPER_TRADE_CASH.toLocaleString("en-US")} was added to this account.`,
+            );
+            return;
+          }
+          Alert.alert(
+            "Saved",
+            paperFunded
+              ? "Paper trading is on. Your existing demo balance was kept."
+              : "Demo profile updated for this account.",
+          );
+          return;
+        }
+        Alert.alert("Saved", "Demo profile updated for this account.");
       }}
     >
       <View style={styles.avatarRow}>
@@ -98,7 +129,11 @@ export default function Profile() {
         onChangeText={setBio}
       />
       <Text style={st.label}>Google / Apple</Text>
-      <Text style={[st.input, { paddingTop: 12, color: "#999" }]}>Demo account • Not connected</Text>
+      <Text style={[st.input, { paddingTop: 12, color: "#999" }]} localize={false}>
+        {demoAccount
+          ? `${providerTitle(demoAccount.provider)} • ${demoAccount.email}`
+          : "Demo account • Not connected"}
+      </Text>
       <View style={styles.toggleRow}>
         <Text style={styles.toggleLabel}>Paper Trade</Text>
         <Switch

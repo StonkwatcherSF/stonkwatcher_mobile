@@ -1,10 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppState } from "react-native";
+import { useAuth } from "./AuthContext";
 import { fetchPortfolioPrices } from "../lib/portfolio-market";
 import { usePortfolioHistory } from "../hooks/usePortfolioHistory";
 import type { EquityPoint } from "../lib/portfolio-equity";
-import { MOCK_PORTFOLIO_KEY, MOCK_STARTING_CASH, MOCK_TRADE_FEE } from "../lib/config";
+import { portfolioStorageKey } from "../lib/demo-account";
+import { MOCK_STARTING_CASH, MOCK_TRADE_FEE, PAPER_TRADE_CASH } from "../lib/config";
 
 export type MockPosition = {
   mint: string;
@@ -55,6 +57,7 @@ export type MockTradeInput = {
 
 type PortfolioState = {
   cash: number;
+  paperFunded: boolean;
   positions: MockPosition[];
   closed: MockClosedPosition[];
   trades: MockTrade[];
@@ -69,11 +72,13 @@ type Store = PortfolioState & {
   historyReady: boolean;
   buy: (input: MockTradeInput) => TradeResult;
   sell: (input: MockTradeInput) => TradeResult;
+  grantPaperCash: () => boolean;
   positionFor: (mint: string) => MockPosition | undefined;
 };
 
 const EMPTY: PortfolioState = {
   cash: MOCK_STARTING_CASH,
+  paperFunded: false,
   positions: [],
   closed: [],
   trades: [],
@@ -103,23 +108,26 @@ function normalizeSymbol(symbol: string) {
 }
 
 function parseState(raw: string | null): PortfolioState {
-  if (!raw) return EMPTY;
+  if (!raw) return { ...EMPTY };
   try {
     const parsed = JSON.parse(raw) as Partial<PortfolioState>;
     return {
       cash: Number.isFinite(parsed.cash) ? Number(parsed.cash) : MOCK_STARTING_CASH,
+      paperFunded: parsed.paperFunded === true,
       positions: Array.isArray(parsed.positions) ? parsed.positions : [],
       closed: Array.isArray(parsed.closed) ? parsed.closed : [],
       trades: Array.isArray(parsed.trades) ? parsed.trades : [],
     };
   } catch {
-    return EMPTY;
+    return { ...EMPTY };
   }
 }
 
 let persistence = Promise.resolve();
-function persist(state: PortfolioState) {
-  persistence = persistence.then(() => AsyncStorage.setItem(MOCK_PORTFOLIO_KEY, JSON.stringify(state))).catch(() => undefined);
+function persist(accountId: string, state: PortfolioState) {
+  persistence = persistence
+    .then(() => AsyncStorage.setItem(portfolioStorageKey(accountId), JSON.stringify(state)))
+    .catch(() => undefined);
   return persistence;
 }
 
@@ -181,6 +189,7 @@ function applyBuy(state: PortfolioState, input: MockTradeInput): ApplyResult {
   };
   return {
     state: {
+      ...state,
       cash: state.cash - amount,
       positions: [nextPosition, ...state.positions.filter((row) => row.mint !== mint)],
       closed: state.closed,
@@ -238,6 +247,7 @@ function applySell(state: PortfolioState, input: MockTradeInput): ApplyResult {
     };
     return {
       state: {
+        ...state,
         cash: state.cash + proceeds,
         positions: state.positions.filter((row) => row.mint !== mint),
         closed: [closed, ...state.closed].slice(0, 50),
@@ -247,6 +257,7 @@ function applySell(state: PortfolioState, input: MockTradeInput): ApplyResult {
   }
   return {
     state: {
+      ...state,
       cash: state.cash + proceeds,
       positions: state.positions.map((row) =>
         row.mint === mint
@@ -267,9 +278,13 @@ function applySell(state: PortfolioState, input: MockTradeInput): ApplyResult {
 }
 
 export function PortfolioProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<PortfolioState>(EMPTY);
+  const { accountId } = useAuth();
+  const storageId = accountId || "anonymous";
+  const [state, setState] = useState<PortfolioState>({ ...EMPTY });
   const [ready, setReady] = useState(false);
   const stateRef = useRef(state);
+  const storageIdRef = useRef(storageId);
+  storageIdRef.current = storageId;
 
   useEffect(() => {
     stateRef.current = state;
@@ -277,7 +292,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    AsyncStorage.getItem(MOCK_PORTFOLIO_KEY)
+    setReady(false);
+    setState({ ...EMPTY });
+    AsyncStorage.getItem(portfolioStorageKey(storageId))
       .then((raw) => {
         if (!cancelled) setState(parseState(raw));
       })
@@ -287,14 +304,14 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [storageId]);
 
   const buy = useCallback((input: MockTradeInput): TradeResult => {
     const next = applyBuy(stateRef.current, input);
     if ("error" in next) return next;
     stateRef.current = next.state;
     setState(next.state);
-    void persist(next.state);
+    void persist(storageIdRef.current, next.state);
     return { ok: true };
   }, []);
 
@@ -303,8 +320,22 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     if ("error" in next) return next;
     stateRef.current = next.state;
     setState(next.state);
-    void persist(next.state);
+    void persist(storageIdRef.current, next.state);
     return { ok: true };
+  }, []);
+
+  const grantPaperCash = useCallback(() => {
+    const current = stateRef.current;
+    if (current.paperFunded) return false;
+    const next: PortfolioState = {
+      ...current,
+      cash: PAPER_TRADE_CASH,
+      paperFunded: true,
+    };
+    stateRef.current = next;
+    setState(next);
+    void persist(storageIdRef.current, next);
+    return true;
   }, []);
 
   const mintKey = state.positions.map((row) => row.mint).sort().join(",");
@@ -332,7 +363,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           const next = { ...current, positions };
           stateRef.current = next;
           setState(next);
-          void persist(next);
+          void persist(storageIdRef.current, next);
         }
       } finally {
         clearTimeout(timeout);
@@ -350,7 +381,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   }, [mintKey, ready]);
 
   const total = state.cash + state.positions.reduce((sum, position) => sum + positionValue(position), 0);
-  const { history: equityHistory, historyReady } = usePortfolioHistory(total, ready);
+  const { history: equityHistory, historyReady } = usePortfolioHistory(total, ready, storageId);
 
   const value = useMemo<Store>(
     () => ({
@@ -360,9 +391,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       historyReady,
       buy,
       sell,
+      grantPaperCash,
       positionFor: (mint: string) => state.positions.find((row) => row.mint === mint),
     }),
-    [state, ready, buy, sell, equityHistory, historyReady],
+    [state, ready, buy, sell, grantPaperCash, equityHistory, historyReady],
   );
 
   return <Context.Provider value={value}>{children}</Context.Provider>;

@@ -134,6 +134,16 @@ Cancel|Abbrechen|Cancelar|Annuler|取消
 Confirm|Bestätigen|Confirmar|Confirmer|确认
 Continue|Weiter|Continuar|Continuer|继续
 Continue as guest|Als Gast fortfahren|Continuar como invitado|Continuer en tant qu’invité|以访客身份继续
+Continue with Google|Mit Google fortfahren|Continuar con Google|Continuer avec Google|使用 Google 继续
+Continue with Apple|Mit Apple fortfahren|Continuar con Apple|Continuer avec Apple|使用 Apple 继续
+Demo login • Fake Google / Apple accounts on this device|Demo-Login • Gefälschte Google-/Apple-Konten auf diesem Gerät|Inicio de sesión demo • Cuentas falsas de Google/Apple en este dispositivo|Connexion démo • Faux comptes Google/Apple sur cet appareil|演示登录 · 本机伪造的 Google/Apple 账户
+Sign in failed|Anmeldung fehlgeschlagen|Error al iniciar sesión|Échec de la connexion|登录失败
+Could not start the demo account. Please try again.|Das Demo-Konto konnte nicht gestartet werden. Bitte erneut versuchen.|No se pudo iniciar la cuenta de prueba. Inténtalo de nuevo.|Impossible de démarrer le compte de démonstration. Réessayez.|无法启动演示账户，请重试。
+Paper Trade|Paper-Trade|Paper Trade|Paper Trade|模拟交易
+Paper Trade off|Paper-Trade aus|Paper Trade desactivado|Paper Trade désactivé|模拟交易已关闭
+Turn on Paper Trade in Profile and save to get a $10,000 demo balance.|Aktiviere Paper-Trade im Profil und speichere, um 10.000 $ Demo-Guthaben zu erhalten.|Activa Paper Trade en Perfil y guarda para obtener un saldo demo de $10,000.|Activez Paper Trade dans le profil et enregistrez pour obtenir 10 000 $ de solde démo.|在个人资料中开启模拟交易并保存，即可获得 $10,000 演示余额。
+Paper trading is on. Your existing demo balance was kept.|Paper-Trading ist aktiv. Dein bestehendes Demo-Guthaben bleibt erhalten.|El paper trading está activado. Se mantuvo tu saldo demo existente.|Le paper trading est activé. Votre solde démo existant a été conservé.|模拟交易已开启。已保留你现有的演示余额。
+Demo profile updated for this account.|Demo-Profil für dieses Konto aktualisiert.|Perfil de prueba actualizado para esta cuenta.|Profil de démonstration mis à jour pour ce compte.|已更新此账户的演示资料。
 Done|Fertig|Listo|Terminé|完成
 Close|Schließen|Cerrar|Fermer|关闭
 Back|Zurück|Atrás|Retour|返回

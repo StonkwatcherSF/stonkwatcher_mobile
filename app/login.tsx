@@ -1,7 +1,8 @@
-import { LocalizedText as Text } from "../components/LocalizationContext";
+import { LocalizedText as Text, LocalizedAlert as Alert } from "../components/LocalizationContext";
+import { useAuth } from "../components/AuthContext";
 
-import React from "react";
-import { View, Pressable, StyleSheet, SafeAreaView, StatusBar, useWindowDimensions } from "react-native";
+import React, { useState } from "react";
+import { View, Pressable, StyleSheet, SafeAreaView, StatusBar, useWindowDimensions, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import Svg, {
   Defs,
@@ -9,15 +10,9 @@ import Svg, {
   Rect,
   Line,
 } from "react-native-svg";
-// ============================================
-// COLORS
-// ============================================
+import type { DemoProvider } from "../lib/demo-account";
 
 const LIME = "#C6E900";
-
-// ============================================
-// GRID BACKGROUND
-// ============================================
 
 function GridBackground() {
   const { width, height } = useWindowDimensions();
@@ -66,52 +61,98 @@ function GridBackground() {
   );
 }
 
-// ============================================
-// LOGIN SCREEN
-// ============================================
-
 export default function LoginScreen() {
   const router = useRouter();
+  const { signInWithDemo } = useAuth();
+  const [busy, setBusy] = useState<DemoProvider | null>(null);
 
-  const handleDemoLogin = () => {
-    router.replace("/tokens");
+  const handleLogin = async (provider: DemoProvider) => {
+    if (busy) return;
+    setBusy(provider);
+    try {
+      await signInWithDemo(provider);
+      router.replace("/tokens");
+    } catch {
+      Alert.alert("Sign in failed", "Could not start the demo account. Please try again.");
+    } finally {
+      setBusy(null);
+    }
   };
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-
-      {/* Background */}
       <GridBackground />
 
       <SafeAreaView style={styles.safeArea}>
-        {/* Small brand logo */}
         <View style={styles.topArea}>
           <View style={styles.logoHexagon}>
             <Text style={styles.logoIcon}>👁</Text>
           </View>
         </View>
 
-        {/* Center title */}
         <View style={styles.centerArea}>
           <Text style={styles.title}>
             Stonk Watcher
           </Text>
         </View>
 
-        {/* Login buttons */}
         <View style={styles.bottomArea}>
           <Pressable
-            onPress={handleDemoLogin}
+            onPress={() => void handleLogin("google")}
+            disabled={Boolean(busy)}
+            style={({ pressed }) => [
+              styles.loginButton,
+              styles.oauthButton,
+              pressed && styles.pressed,
+              busy && styles.disabled,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Continue with Google"
+          >
+            {busy === "google" ? (
+              <ActivityIndicator color="#111111" />
+            ) : (
+              <Text style={styles.oauthText}>Continue with Google</Text>
+            )}
+          </Pressable>
+
+          <Pressable
+            onPress={() => void handleLogin("apple")}
+            disabled={Boolean(busy)}
+            style={({ pressed }) => [
+              styles.loginButton,
+              styles.oauthButton,
+              pressed && styles.pressed,
+              busy && styles.disabled,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Continue with Apple"
+          >
+            {busy === "apple" ? (
+              <ActivityIndicator color="#111111" />
+            ) : (
+              <Text style={styles.oauthText}>Continue with Apple</Text>
+            )}
+          </Pressable>
+
+          <Pressable
+            onPress={() => void handleLogin("guest")}
+            disabled={Boolean(busy)}
             style={({ pressed }) => [
               styles.loginButton,
               styles.guestButton,
               pressed && styles.pressed,
+              busy && styles.disabled,
             ]}
             accessibilityRole="button"
             accessibilityLabel="Continue as guest"
           >
-            <Text style={styles.guestText}>Continue as guest</Text>
+            {busy === "guest" ? (
+              <ActivityIndicator color="#000000" />
+            ) : (
+              <Text style={styles.guestText}>Continue as guest</Text>
+            )}
           </Pressable>
 
           <Text style={styles.terms}>
@@ -120,17 +161,13 @@ export default function LoginScreen() {
           </Text>
 
           <Text style={styles.demoNote}>
-            Demo mode • No account required
+            Demo login • Fake Google / Apple accounts on this device
           </Text>
         </View>
       </SafeAreaView>
     </View>
   );
 }
-
-// ============================================
-// STYLES
-// ============================================
 
 const styles = StyleSheet.create({
   container: {
@@ -195,6 +232,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 
+  oauthButton: {
+    backgroundColor: "#FFFFFF",
+  },
+
   guestButton: {
     backgroundColor: LIME,
   },
@@ -202,6 +243,17 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.75,
     transform: [{ scale: 0.99 }],
+  },
+
+  disabled: {
+    opacity: 0.7,
+  },
+
+  oauthText: {
+    color: "#111111",
+    fontSize: 14,
+    fontWeight: "700",
+    fontFamily: "GoogleSansFlex",
   },
 
   guestText: {
