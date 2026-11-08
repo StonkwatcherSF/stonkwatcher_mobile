@@ -221,6 +221,8 @@ Invested|Investiert|Invertido|Investi|投入金额
 Profit|Gewinn|Ganancia|Bénéfice|收益
 PnL|Gewinn/Verlust|Ganancias/pérdidas|Gains/pertes|盈亏
 Total PnL|Gesamtgewinn/-verlust|Ganancias/pérdidas totales|Gains/pertes totaux|总盈亏
+Rewards Earned|Verdiente Rewards|Recompensas ganadas|Récompenses gagnées|已获奖励
+Paid Days/Amount|Ausgezahlte Tage/Betrag|Días/importe pagados|Jours/montant payés|已支付天数/金额
 Price|Preis|Precio|Prix|价格
 Market Cap|Marktkapitalisierung|Capitalización de mercado|Capitalisation boursière|市值
 Market snapshot|Marktübersicht|Resumen del mercado|Aperçu du marché|市场概览
