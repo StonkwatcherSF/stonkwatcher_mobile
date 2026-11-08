@@ -126,16 +126,6 @@ function analysisRows(breakdown: TracerScoreRow[], payload: TracerPayload | null
   return [] as { score: string; message: string }[];
 }
 
-function clusterTitle(kind: string, clusterNo: number | null) {
-  if (clusterNo != null) {
-    const label = kind === "dev" ? "Dev cluster" : kind === "isolated" ? "Isolated" : `${kind} cluster`;
-    return `${label} ${clusterNo}`;
-  }
-  if (kind === "dev") return "Dev";
-  if (kind === "isolated") return "Isolated";
-  return kind;
-}
-
 export default function TracerAnalysisScreen() {
   const router = useRouter();
   const backgroundScroll = useBackgroundScroll();
@@ -153,6 +143,7 @@ export default function TracerAnalysisScreen() {
   const [fitKey, setFitKey] = useState(0);
   const [holdersOpen, setHoldersOpen] = useState(false);
   const [groupClusters, setGroupClusters] = useState(false);
+  const [collapsedClusters, setCollapsedClusters] = useState<Set<string>>(() => new Set());
   const [holderQuery, setHolderQuery] = useState("");
   const mapWidth = Math.max(260, Math.min(width - 40, 420));
   const mapHeight = 395;
@@ -165,9 +156,10 @@ export default function TracerAnalysisScreen() {
     () => visibleBubbleMap(mapData, BUBBLEMAP_V2_TOP_HOLDERS),
     [mapData],
   );
+  // Use the full map (with pools) so linked wallets share the same hierarchy as web.
   const holderGroups = useMemo(
-    () => holderDistribution(visibleMap?.nodes ?? [], visibleMap?.links ?? []),
-    [visibleMap],
+    () => holderDistribution(mapData?.nodes ?? [], mapData?.links ?? []),
+    [mapData],
   );
   const title = isWallet
     ? truncateAddress(address, 4)
@@ -436,7 +428,12 @@ export default function TracerAnalysisScreen() {
           {holdersOpen && (
             <View style={styles.holdersList}>
               <View style={styles.holderListToolbar}>
-                <Pressable onPress={() => setGroupClusters((value) => !value)}>
+                <Pressable
+                  onPress={() => {
+                    setGroupClusters((value) => !value);
+                    setCollapsedClusters(new Set());
+                  }}
+                >
                   <Text style={styles.holderToggle}>{groupClusters ? "Ungroup clusters" : "Group clusters"}</Text>
                 </Pressable>
                 <Text style={styles.holderMeta}>{`${holderGroups.reduce((sum, group) => sum + group.members.length, 0)} wallets`}</Text>
@@ -451,37 +448,74 @@ export default function TracerAnalysisScreen() {
                 style={styles.holderSearch}
               />
               <ScrollView {...holderBackground} scrollEventThrottle={32} nestedScrollEnabled style={styles.holderScroller}>
-                {holderRows.map((group) => (
-                  <View key={group.key}>
-                    {groupClusters && group.clusterNo != null ? (
-                      <View style={styles.clusterHeader}>
-                        <View style={[styles.holderDot, { backgroundColor: group.pal.fill }]} />
-                        <Text style={styles.clusterTitle}>{clusterTitle(group.kind, group.clusterNo)}</Text>
-                        <Text style={styles.holderShare}>{formatPct(group.share)}</Text>
-                      </View>
-                    ) : null}
-                    {group.members.map((member) => (
-                      <Pressable
-                        key={member.id}
-                        style={styles.holderRow}
-                        onPress={() => {
-                          const value = member.address || member.label;
-                          if (!value) return;
-                          void Clipboard.setStringAsync(value);
-                        }}
-                      >
-                        <Text style={styles.holderRank}>#{member.rank}</Text>
-                        <View style={[styles.holderDot, { backgroundColor: member.isCreator ? "#f2c94c" : member.pal.fill }]} />
-                        <Text localize={false} style={styles.holderAddress} numberOfLines={1}>
-                          {member.isCreator ? "Dev" : truncateAddress(member.address || member.label)}
-                          {member.isMagic ? " · Magic" : ""}
-                          {member.clusterKind && member.clusterKind !== "organic" ? ` · ${member.clusterKind}` : ""}
-                        </Text>
-                        <Text style={styles.holderShare}>{formatPct(member.percentage)}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                ))}
+                {holderRows.map((group) => {
+                  const clustered = groupClusters && group.clusterNo != null;
+                  const open = !collapsedClusters.has(group.key);
+                  return (
+                    <View key={group.key}>
+                      {clustered ? (
+                        <Pressable
+                          style={styles.clusterHeader}
+                          onPress={() => {
+                            setCollapsedClusters((current) => {
+                              const next = new Set(current);
+                              if (next.has(group.key)) next.delete(group.key);
+                              else next.add(group.key);
+                              return next;
+                            });
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Cluster ${group.clusterNo}`}
+                        >
+                          <ChevronDown
+                            size={14}
+                            color="#8C8C8C"
+                            style={{ transform: [{ rotate: open ? "0deg" : "-90deg" }] }}
+                          />
+                          <View style={[styles.holderDot, { backgroundColor: group.pal.fill }]} />
+                          <Text style={styles.clusterTitle}>
+                            Cluster{" "}
+                            <Text localize={false}>{String(group.clusterNo)}</Text>
+                          </Text>
+                          <Text style={styles.clusterCount} localize={false}>
+                            {group.members.length}
+                          </Text>
+                          <Text style={styles.holderShare}>{formatPct(group.share)}</Text>
+                        </Pressable>
+                      ) : null}
+                      {(!clustered || open) &&
+                        group.members.map((member) => (
+                          <Pressable
+                            key={member.id}
+                            style={styles.holderRow}
+                            onPress={() => {
+                              const value = member.address || member.label;
+                              if (!value) return;
+                              void Clipboard.setStringAsync(value);
+                            }}
+                          >
+                            {clustered ? <View style={styles.clusterIndent} /> : null}
+                            <Text style={styles.holderRank}>#{member.rank}</Text>
+                            <View
+                              style={[
+                                styles.holderDot,
+                                {
+                                  backgroundColor: member.isCreator
+                                    ? "#f2c94c"
+                                    : member.pal?.fill ?? (clustered ? group.pal.fill : "#6a737c"),
+                                },
+                              ]}
+                            />
+                            <Text localize={false} style={styles.holderAddress} numberOfLines={1}>
+                              {member.isCreator ? "Dev" : truncateAddress(member.address || member.label)}
+                              {member.isMagic ? " · Magic" : ""}
+                            </Text>
+                            <Text style={styles.holderShare}>{formatPct(member.percentage)}</Text>
+                          </Pressable>
+                        ))}
+                    </View>
+                  );
+                })}
                 {!holderRows.some((group) => group.members.length) ? (
                   <Text style={styles.holderEmpty}>No holders match.</Text>
                 ) : null}
@@ -560,13 +594,15 @@ const styles = StyleSheet.create({
   holderMeta: { color: MUTED, fontSize: 10 },
   holderSearch: { height: 36, borderRadius: 6, backgroundColor: "#111827", color: "#F2F2F2", paddingHorizontal: 10, fontSize: 12 },
   holderScroller: { maxHeight: 360 },
-  clusterHeader: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8 },
+  clusterHeader: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8, paddingRight: 2 },
   clusterTitle: { color: "#F2F2F2", fontSize: 12, fontWeight: "600", flex: 1 },
+  clusterCount: { color: MUTED, fontSize: 11, minWidth: 18, textAlign: "right" },
+  clusterIndent: { width: 14 },
   holderRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 7 },
   holderRank: { color: MUTED, fontSize: 10, width: 28 },
   holderDot: { width: 8, height: 8, borderRadius: 4 },
-  holderAddress: { color: "#E8E8E8", fontSize: 11, flex: 1 },
-  holderShare: { color: MUTED, fontSize: 11 },
+  holderAddress: { color: "#E8E8E8", fontSize: 11, flex: 1, fontVariant: ["tabular-nums"] },
+  holderShare: { color: MUTED, fontSize: 11, minWidth: 48, textAlign: "right" },
   holderEmpty: { color: MUTED, fontSize: 11, paddingVertical: 12 },
   mapIntel: { color: "#C6E900", fontSize: 10 },
   demoNote: { color: "#898989", textAlign: "center", fontSize: 10, lineHeight: 15, marginTop: 9 },

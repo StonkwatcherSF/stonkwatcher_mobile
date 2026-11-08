@@ -385,29 +385,71 @@ export type HolderListGroup = {
   members: HolderListMember[];
 };
 
+/** Same union-find as web BubbleMap: pools can bridge wallets when includePool is true. */
+export function linkedHolderGroups(nodes: BubbleMapNode[], links: BubbleMapLink[], includePool = false) {
+  const visible = nodes.filter(
+    (node) => node.kind === "wallet" && (includePool || !node.isPool) && !node.isMagic && !node.isTimeNode,
+  );
+  const visibleIds = new Set(visible.map((node) => node.id));
+  const parent = new Map(visible.map((node) => [node.id, node.id]));
+  const find = (id: string): string => {
+    const next = parent.get(id) ?? id;
+    if (next !== id) {
+      const root = find(next);
+      parent.set(id, root);
+      return root;
+    }
+    return id;
+  };
+  const union = (a: string, b: string) => {
+    if (!visibleIds.has(a) || !visibleIds.has(b)) return;
+    const pa = find(a);
+    const pb = find(b);
+    if (pa !== pb) parent.set(pa, pb);
+  };
+  for (const link of links) {
+    if (!STRONG_LINK.has(link.type)) continue;
+    union(link.source, link.target);
+  }
+  const buckets = new Map<string, string[]>();
+  for (const node of visible) {
+    const root = find(node.id);
+    const list = buckets.get(root) ?? [];
+    list.push(node.id);
+    buckets.set(root, list);
+  }
+  return [...buckets.values()];
+}
+
 export function holderDistribution(nodes: BubbleMapNode[], links: BubbleMapLink[]): HolderListGroup[] {
-  const wallets = nodes.filter(
-    (node) => node.kind !== "token" && !node.isPool && !node.isMagic && !node.isTimeNode,
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const holders = nodes.filter(
+    (node) => node.kind === "wallet" && !node.isPool && !node.isMagic && !node.isTimeNode,
   );
   const rankOf = new Map(
-    [...wallets]
+    [...holders]
       .sort((a, b) => (b.percentage ?? 0) - (a.percentage ?? 0) || b.amount - a.amount)
       .map((node, index) => [node.id, node.rank && node.rank > 0 ? node.rank : index + 1]),
   );
-  const { ranked } = componentsOf(wallets, links, wallets);
+  // Include pools so transfer/jito edges through a pool hub still form one cluster.
+  const ranked = linkedHolderGroups(nodes, links, true);
   let clusterNo = 0;
   return ranked
-    .map(([, ids], index) => {
+    .map((ids, index) => {
       const members = ids
-        .map((id) => wallets.find((node) => node.id === id))
-        .filter((node): node is BubbleMapNode => Boolean(node))
+        .map((id) => byId.get(id))
+        .filter((node): node is BubbleMapNode => {
+          if (!node) return false;
+          return !node.isPool && !node.isMagic && !node.isTimeNode;
+        })
         .sort((a, b) => (rankOf.get(a.id) ?? 999) - (rankOf.get(b.id) ?? 999));
+      if (!members.length) return null;
       const linked = members.length > 1;
       const hasCreator = members.some((node) => node.isCreator);
       const pal = paletteForComponent(members.length, index, hasCreator);
       const kind = hasCreator ? "dev" : linked ? members[0]?.clusterKind || "cluster" : "isolated";
       return {
-        key: `g:${members[0]?.id ?? index}`,
+        key: `list:${members[0]?.id ?? index}`,
         clusterNo: linked ? 0 : null,
         pal,
         share: members.reduce((sum, node) => sum + (node.percentage ?? 0), 0),
@@ -419,6 +461,7 @@ export function holderDistribution(nodes: BubbleMapNode[], links: BubbleMapLink[
         })),
       };
     })
+    .filter((group): group is HolderListGroup => Boolean(group))
     .sort((a, b) => (a.members[0]?.rank ?? 999) - (b.members[0]?.rank ?? 999))
     .map((group) => {
       if (group.members.length <= 1) return group;

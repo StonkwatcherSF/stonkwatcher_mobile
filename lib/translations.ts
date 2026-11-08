@@ -42,6 +42,7 @@ Mint Auth|Prägeberechtigung|Autoridad de emisión|Autorité d’émission|增�
 Buyback|Rückkauf|Recompra|Rachat|回购
 Burn|Verbrennung|Quema|Destruction|销毁
 Clusters|Cluster|Grupos|Groupes|集群
+Cluster|Cluster|Grupo|Groupe|集群
 Group clusters|Cluster gruppieren|Agrupar grupos|Regrouper les groupes|合并集群
 Ungroup clusters|Cluster auflösen|Desagrupar grupos|Dissocier les groupes|拆分集群
 Liquidity|Liquidität|Liquidez|Liquidité|流动性
@@ -103,7 +104,7 @@ Network: Solana (simulated)|Netzwerk: Solana (simuliert)|Red: Solana (simulada)|
 $0 (simulated)|$0 (simuliert)|$0 (simulado)|$0 (simulé)|$0（模拟）
 $93,737.34 (demo)|$93,737.34 (Demo)|$93,737.34 (prueba)|$93,737.34 (démo)|$93,737.34（演示）
 A private list of wallets and tokens you will not touch. Blocked tokens, and later launches from the same dev wallet, stay out of your feed and search. Saved on this device.|Eine private Liste von Wallets und Token, die du meiden möchtest. Gesperrte Token und spätere Starts derselben Entwickler-Wallet werden in Feed und Suche ausgeblendet. Auf diesem Gerät gespeichert.|Una lista privada de billeteras y tokens que deseas evitar. Los tokens bloqueados y los futuros lanzamientos del mismo desarrollador se ocultan de tu feed y búsqueda. Guardada en este dispositivo.|Une liste privée de portefeuilles et de jetons à éviter. Les jetons bloqués et les futurs lancements du même développeur sont masqués dans le fil et la recherche. Enregistrée sur cet appareil.|用于避开特定钱包和代币的私人列表。已拉黑代币及同一开发者钱包后续发行的代币将从动态和搜索中隐藏。保存在此设备上。
-Illustrative creator alerts • Not live blockchain monitoring.|Beispielhafte Erstellerwarnungen • Keine Live-Blockchain-Überwachung.|Alertas ilustrativas de creadores • Sin monitoreo en vivo de la cadena.|Alertes de créateurs illustratives • Pas de suivi blockchain en direct.|创建者提醒仅作演示 · 非实时链上监控。
+Live creator alerts from recent StonkFun launches.|Live-Erstellerwarnungen aus aktuellen StonkFun-Starts.|Alertas de creadores en vivo de lanzamientos recientes de StonkFun.|Alertes de créateurs en direct des lancements StonkFun récents.|来自 StonkFun 近期发行的实时创建者提醒。
 By continuing, you agree to our Terms of Service and Privacy Policy.|Mit dem Fortfahren stimmst du unseren Nutzungsbedingungen und Datenschutzrichtlinien zu.|Al continuar, aceptas nuestros Términos de servicio y Política de privacidad.|En continuant, vous acceptez nos Conditions d’utilisation et notre Politique de confidentialité.|继续即表示你同意我们的服务条款和隐私政策。
 Graduated tokens under 1 week old that are still above $40k, ranked by 24h volume.|Vor weniger als einer Woche graduierte Token über $40.000, nach 24h-Volumen sortiert.|Tokens graduados hace menos de una semana, aún por encima de $40.000, ordenados por volumen de 24 h.|Jetons gradués depuis moins d’une semaine, encore au-dessus de 40 000 $, classés par volume sur 24 h.|毕业未满一周且市值仍高于 $40,000 的代币，按 24 小时交易量排名。
 Graduated tokens under 1 week old that are still above $40k, ranked by trading volume.|Vor weniger als einer Woche graduierte Token über $40.000, nach Handelsvolumen sortiert.|Tokens graduados hace menos de una semana, aún por encima de $40.000, ordenados por volumen.|Jetons gradués depuis moins d’une semaine, encore au-dessus de 40 000 $, classés par volume.|毕业未满一周且市值仍高于 $40,000 的代币，按交易量排名。
@@ -266,6 +267,15 @@ Token Creator Alerts|Token-Erstellerwarnungen|Alertas de creadores de tokens|Ale
 Alerts|Warnungen|Alertas|Alertes|提醒
 Creator of|Ersteller von|Creador de|Créateur de|创建者
 just launched|gerade gestartet|acaba de lanzar|vient de lancer|刚刚发行
+launched another token|hat einen weiteren Token gestartet|lanzó otro token|a lancé un autre jeton|又发行了一枚代币
+after launch|nach dem Start|después del lanzamiento|après le lancement|发行之后
+just sold 100% of their supply|hat gerade 100 % des Angebots verkauft|acaba de vender el 100 % de su suministro|vient de vendre 100 % de son offre|刚刚卖出了全部供应量
+just sold|hat gerade verkauft|acaba de vender|vient de vendre|刚刚卖出
+of their holdings|ihrer Bestände|de sus tenencias|de ses avoirs|的持仓
+moved|bewegte|movió|a déplacé|转移了
+worth of tokens|an Token|en tokens|en jetons|的代币
+No live creator alerts in this window.|Keine Live-Erstellerwarnungen in diesem Zeitraum.|No hay alertas de creadores en vivo en este periodo.|Aucune alerte de créateur en direct sur cette période.|此时间窗口内没有实时创建者提醒。
+Could not load creator alerts.|Erstellerwarnungen konnten nicht geladen werden.|No se pudieron cargar las alertas de creadores.|Impossible de charger les alertes des créateurs.|无法加载创建者提醒。
 saved|gespeichert|guardados|enregistrés|已保存
 Auto|Automatisch|Automático|Automatique|自动
 Slippage|Slippage|Deslizamiento|Glissement|滑点
