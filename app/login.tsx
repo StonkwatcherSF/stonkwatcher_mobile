@@ -29,16 +29,16 @@ function LoginBackground() {
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { signInWithDemo } = useAuth();
+  const { signInWithDemo, signInWithWallet } = useAuth();
   const reducedMotion = useReducedMotion();
   const signingIn = useRef(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"guest" | "phantom" | "jupiter" | null>(null);
   const [animationFailed, setAnimationFailed] = useState(false);
 
   const continueAsGuest = async () => {
     if (signingIn.current) return;
     signingIn.current = true;
-    setBusy(true);
+    setBusy("guest");
     try {
       await signInWithDemo("guest");
       router.replace("/wallet");
@@ -46,7 +46,36 @@ export default function LoginScreen() {
       Alert.alert("Sign in failed", "Could not start the guest account. Please try again.");
     } finally {
       signingIn.current = false;
-      setBusy(false);
+      setBusy(null);
+    }
+  };
+
+  const continueWithWallet = async (provider: "phantom" | "jupiter") => {
+    if (signingIn.current) return;
+    signingIn.current = true;
+    setBusy(provider);
+    try {
+      const result = await signInWithWallet(provider);
+      if (!result.pending) {
+        router.replace("/wallet");
+        return;
+      }
+      if (provider === "jupiter") {
+        Alert.alert(
+          "Connect in Jupiter",
+          result.hint ||
+            "Open Jupiter, tap the globe, open stonkwatcher.xyz, then approve the wallet connect prompt for live trading.",
+        );
+      }
+      // Phantom deeplink returns via wallet-callback route.
+    } catch (error) {
+      Alert.alert(
+        "Wallet connect failed",
+        error instanceof Error ? error.message : "Could not connect this wallet.",
+      );
+    } finally {
+      signingIn.current = false;
+      setBusy(null);
     }
   };
 
@@ -81,25 +110,43 @@ export default function LoginScreen() {
         <View style={styles.actions}>
           <Pressable
             onPress={() => void continueAsGuest()}
-            disabled={busy}
+            disabled={Boolean(busy)}
             accessibilityRole="button"
             accessibilityLabel="Continue as Guest"
-            accessibilityState={{ disabled: busy, busy }}
+            accessibilityState={{ disabled: Boolean(busy), busy: busy === "guest" }}
             style={({ pressed }) => [styles.button, styles.guestButton, pressed && styles.pressed]}
           >
-            {busy ? <ActivityIndicator color="#101010" /> : <>
+            {busy === "guest" ? <ActivityIndicator color="#101010" /> : <>
               <GuestIcon />
               <Text style={styles.buttonText}>Continue as Guest</Text>
             </>}
           </Pressable>
           <View style={styles.walletButtons}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Phantom" style={[styles.button, styles.walletButton]}>
-              <PhantomIcon />
-              <Text style={styles.buttonText}>Phantom</Text>
+            <Pressable
+              onPress={() => void continueWithWallet("phantom")}
+              disabled={Boolean(busy)}
+              accessibilityRole="button"
+              accessibilityLabel="Phantom"
+              accessibilityState={{ disabled: Boolean(busy), busy: busy === "phantom" }}
+              style={({ pressed }) => [styles.button, styles.walletButton, pressed && styles.pressed]}
+            >
+              {busy === "phantom" ? <ActivityIndicator color="#101010" /> : <>
+                <PhantomIcon />
+                <Text style={styles.buttonText}>Phantom</Text>
+              </>}
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="Jupiter" style={[styles.button, styles.walletButton]}>
-              <JupiterIcon />
-              <Text style={styles.buttonText}>Jupiter</Text>
+            <Pressable
+              onPress={() => void continueWithWallet("jupiter")}
+              disabled={Boolean(busy)}
+              accessibilityRole="button"
+              accessibilityLabel="Jupiter"
+              accessibilityState={{ disabled: Boolean(busy), busy: busy === "jupiter" }}
+              style={({ pressed }) => [styles.button, styles.walletButton, pressed && styles.pressed]}
+            >
+              {busy === "jupiter" ? <ActivityIndicator color="#101010" /> : <>
+                <JupiterIcon />
+                <Text style={styles.buttonText}>Jupiter</Text>
+              </>}
             </Pressable>
           </View>
         </View>

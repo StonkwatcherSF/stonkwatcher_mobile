@@ -139,6 +139,18 @@ Continue with Apple|Mit Apple fortfahren|Continuar con Apple|Continuer avec Appl
 Demo login • Fake Google / Apple accounts on this device|Demo-Login • Gefälschte Google-/Apple-Konten auf diesem Gerät|Inicio de sesión demo • Cuentas falsas de Google/Apple en este dispositivo|Connexion démo • Faux comptes Google/Apple sur cet appareil|演示登录 · 本机伪造的 Google/Apple 账户
 Sign in failed|Anmeldung fehlgeschlagen|Error al iniciar sesión|Échec de la connexion|登录失败
 Could not start the demo account. Please try again.|Das Demo-Konto konnte nicht gestartet werden. Bitte erneut versuchen.|No se pudo iniciar la cuenta de prueba. Inténtalo de nuevo.|Impossible de démarrer le compte de démonstration. Réessayez.|无法启动演示账户，请重试。
+Could not start the guest account. Please try again.|Das Gastkonto konnte nicht gestartet werden. Bitte erneut versuchen.|No se pudo iniciar la cuenta de invitado. Inténtalo de nuevo.|Impossible de démarrer le compte invité. Réessayez.|无法启动访客账户，请重试。
+Wallet connect failed|Wallet-Verbindung fehlgeschlagen|Error al conectar la billetera|Échec de la connexion du portefeuille|钱包连接失败
+Connect in Jupiter|In Jupiter verbinden|Conectar en Jupiter|Se connecter dans Jupiter|在 Jupiter 中连接
+Approve in wallet|In der Wallet bestätigen|Aprobar en la billetera|Approuver dans le portefeuille|在钱包中批准
+Trade submitted|Trade übermittelt|Operación enviada|Transaction envoyée|交易已提交
+Live trade|Live-Trade|Operación en vivo|Transaction live|实盘交易
+Live wallet trade|Live-Wallet-Trade|Operación con billetera en vivo|Transaction portefeuille live|实盘钱包交易
+Live trading uses your connected wallet balances.|Live-Trading verwendet die Salden deiner verbundenen Wallet.|El trading en vivo usa los saldos de tu billetera conectada.|Le trading en direct utilise les soldes de votre portefeuille connecté.|实盘交易使用已连接钱包的余额。
+Profile updated for this wallet.|Profil für diese Wallet aktualisiert.|Perfil actualizado para esta billetera.|Profil mis à jour pour ce portefeuille.|已更新此钱包的个人资料。
+Connected wallet|Verbundene Wallet|Billetera conectada|Portefeuille connecté|已连接钱包
+Approve in wallet…|In der Wallet bestätigen…|Aprobar en la billetera…|Approuver dans le portefeuille…|请在钱包中批准…
+Live trading · connected wallet|Live-Trading · verbundene Wallet|Trading en vivo · billetera conectada|Trading en direct · portefeuille connecté|实盘交易 · 已连接钱包
 Paper Trade|Paper-Trade|Paper Trade|Paper Trade|模拟交易
 Paper Trade off|Paper-Trade aus|Paper Trade desactivado|Paper Trade désactivé|模拟交易已关闭
 Turn on Paper Trade in Profile and save to get a $10,000 demo balance.|Aktiviere Paper-Trade im Profil und speichere, um 10.000 $ Demo-Guthaben zu erhalten.|Activa Paper Trade en Perfil y guarda para obtener un saldo demo de $10,000.|Activez Paper Trade dans le profil et enregistrez pour obtenir 10 000 $ de solde démo.|在个人资料中开启模拟交易并保存，即可获得 $10,000 演示余额。

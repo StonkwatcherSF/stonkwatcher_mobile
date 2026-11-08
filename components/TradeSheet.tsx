@@ -17,12 +17,19 @@ import {
 import { BlurView } from "expo-blur";
 import { COLORS, FONTS } from "../constants/theme";
 import TokenImage from "./TokenImage";
+import { useAuth } from "./AuthContext";
 import { usePortfolio, positionPnl, positionValue } from "./PortfolioContext";
 import { useSettings } from "./SettingsContext";
 import { useTokenMarket } from "../hooks/useTokenMarket";
-import { MOCK_TRADE_FEE } from "../lib/config";
+import { MOCK_TRADE_FEE, WSOL_MINT } from "../lib/config";
 import { compactUsd, formatPrice, formatTokenAmount, prettySymbol } from "../lib/format";
 import { isSolanaAddress } from "../lib/solana";
+import { fetchMarket } from "../lib/stonk";
+import {
+    buildLiveSwap,
+    fetchWalletBalances,
+    signAndSendWalletTransaction,
+} from "../lib/wallet";
 
 type TradeMode = "buy" | "sell";
 
@@ -72,11 +79,42 @@ export default function TradeSheet({
     const router = useRouter();
   const backgroundScroll = useBackgroundScroll();
     const { prefs } = useSettings();
+    const { wallet, isLiveWallet } = useAuth();
     const { cash, buy, sell, positionFor } = usePortfolio();
     const mint = isSolanaAddress(tokenId) ? tokenId : "";
     const { data: detail, loading: detailLoading } = useTokenMarket(mint || undefined);
     const tokenVerified = detail?.token?.verified ?? verifiedProp ?? false;
     const holding = mint ? positionFor(mint) : undefined;
+    const [liveBusy, setLiveBusy] = useState(false);
+    const [liveBalances, setLiveBalances] = useState<{
+        sol: number;
+        token: number;
+        solPriceUsd: number;
+    } | null>(null);
+
+    useEffect(() => {
+        if (!isLiveWallet || !wallet?.address || !mint) return;
+        let cancelled = false;
+        void Promise.all([
+            fetchWalletBalances(wallet.address, mint),
+            fetchMarket(WSOL_MINT).catch(() => null),
+        ]).then(([balances, solMarket]) => {
+            if (cancelled) return;
+            const sol = Number(balances.pay?.find((row) => row.symbol === "SOL")?.amount || 0);
+            const token = Number(balances.token?.amount || 0);
+            const solPriceUsd = Number(solMarket?.priceUsd || 0);
+            setLiveBalances({
+                sol: Number.isFinite(sol) ? sol : 0,
+                token: Number.isFinite(token) ? token : 0,
+                solPriceUsd: Number.isFinite(solPriceUsd) ? solPriceUsd : 0,
+            });
+        }).catch(() => {
+            if (!cancelled) setLiveBalances({ sol: 0, token: 0, solPriceUsd: 0 });
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [isLiveWallet, wallet?.address, mint]);
     const handleClose = () => {
         if (onClose) {
             onClose();
@@ -172,11 +210,15 @@ export default function TradeSheet({
     const logo = imageUrl || detail?.token?.imageUrl || detail?.token?.logoUrl;
     const sellPnl = holding ? positionPnl(holding, livePrice) : null;
 
-    const available = isBuy
+    const paperAvailable = isBuy
         ? cash
         : holding
           ? positionValue(holding, livePrice)
           : 0;
+    const liveAvailable = isBuy
+        ? (liveBalances?.sol || 0) * (liveBalances?.solPriceUsd || 0)
+        : (liveBalances?.token || 0) * (livePrice || 0);
+    const available = isLiveWallet ? liveAvailable : paperAvailable;
 
     const [amount, setAmount] = useState<TradeAmount>({ unit: "usd", text: "" });
     const [swapVersion, setSwapVersion] = useState(0);
@@ -218,8 +260,67 @@ export default function TradeSheet({
         }).start();
     }
 
+    async function confirmLiveTrade() {
+        if (!wallet?.address || !mint || liveBusy) return;
+        if (!(livePrice > 0)) {
+            Alert.alert("Live trade", "No live price yet for this token.");
+            resetSlider();
+            return;
+        }
+        const solPrice = liveBalances?.solPriceUsd || 0;
+        if (isBuy && !(solPrice > 0)) {
+            Alert.alert("Live trade", "Could not read SOL price for this buy.");
+            resetSlider();
+            return;
+        }
+        const swapAmount = isBuy
+            ? String(Math.max(0, submittedUsd / solPrice))
+            : String(Math.max(0, amount.unit === "usd" ? submittedUsd / livePrice : tokenAmount));
+        if (!(Number(swapAmount) > 0)) {
+            Alert.alert("Live trade", "Enter an amount above zero.");
+            resetSlider();
+            return;
+        }
+        setLiveBusy(true);
+        try {
+            const quote = await buildLiveSwap({
+                mint,
+                side: isBuy ? "buy" : "sell",
+                amount: swapAmount,
+                user: wallet.address,
+                payMint: isBuy ? WSOL_MINT : undefined,
+            });
+            if (!quote.transaction) {
+                throw new Error(quote.error || "Could not build this swap");
+            }
+            const signature = await signAndSendWalletTransaction(wallet, quote.transaction);
+            if (!signature) {
+                Alert.alert("Approve in wallet", "Confirm the transaction in Phantom, then return to Stonk Watcher.");
+                resetSlider();
+                return;
+            }
+            closingRef.current = true;
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert("Trade submitted", `Signature ${signature.slice(0, 8)}…`);
+            if (onTradeConfirmed) onTradeConfirmed(mode, tokenId, submittedUsd);
+            else {
+                closingRef.current = false;
+                closeSheetRef.current();
+            }
+        } catch (error) {
+            Alert.alert("Live trade", error instanceof Error ? error.message : "Could not submit this swap.");
+            resetSlider();
+        } finally {
+            setLiveBusy(false);
+        }
+    }
+
     function confirmDemoTrade() {
-        if (!validAmount || closingRef.current) return;
+        if (!validAmount || closingRef.current || liveBusy) return;
+        if (isLiveWallet) {
+            void confirmLiveTrade();
+            return;
+        }
         if (!prefs.paperTrade) {
             Alert.alert("Paper Trade off", "Turn on Paper Trade in Profile and save to get a $10,000 demo balance.");
             resetSlider();
@@ -315,10 +416,12 @@ export default function TradeSheet({
     const slideValueRef = useRef(slideX);
     const slideMaxRef = useRef(slideMax);
     const validAmountRef = useRef(validAmount);
+    const liveBusyRef = useRef(liveBusy);
     const confirmRef = useRef(confirmDemoTrade);
 
     slideMaxRef.current = slideMax;
-    validAmountRef.current = validAmount;
+    validAmountRef.current = validAmount && !liveBusy;
+    liveBusyRef.current = liveBusy;
     confirmRef.current = confirmDemoTrade;
 
     function appendDigit(digit: string) {
@@ -423,7 +526,7 @@ export default function TradeSheet({
                                 {formatPrice(livePrice)}
                             </Text>
                             <Text style={styles.change}>
-                                Demo paper trade
+                                {isLiveWallet ? "Live wallet trade" : "Demo paper trade"}
                             </Text>
                         </View>
 
@@ -447,7 +550,7 @@ export default function TradeSheet({
                         <Text style={styles.availableValue}>
                             ${formatMoney(available)}
                         </Text>
-                        {!isBuy && sellPnl ? (
+                        {!isBuy && !isLiveWallet && sellPnl ? (
                             <Text style={styles.profitText}>
                                 {sellPnl.pnl >= 0 ? "+" : ""}
                                 {sellPnl.pnl.toLocaleString("en-US", {
@@ -614,7 +717,11 @@ export default function TradeSheet({
                         </Animated.View>
 
                         <Text style={styles.sliderLabel} pointerEvents="none">
-                            {validAmount ? `Slide to ${mode}` : "Enter an amount"}
+                            {liveBusy
+                                ? "Approve in wallet…"
+                                : validAmount
+                                  ? `Slide to ${mode}`
+                                  : "Enter an amount"}
                         </Text>
 
                         <Animated.View

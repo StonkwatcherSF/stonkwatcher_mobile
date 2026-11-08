@@ -8,11 +8,14 @@ import ShareIcon from "../assets/icons/share.svg";
 import HistoryIcon from "../assets/icons/transaction-history.svg";
 import SettingsIcon from "../assets/icons/settings.svg";
 import UserAvatar from "./UserAvatar";
+import { useAuth } from "./AuthContext";
 import { useSettings } from "./SettingsContext";
+import { walletTitle } from "../lib/wallet";
 type Props = { showBack?: boolean; onOpenMore?: () => void; onHistory?: () => void; onSend?: () => void };
 export default function WalletProfile({ showBack = false, onOpenMore, onHistory, onSend }: Props) {
   const router = useRouter();
   const { prefs } = useSettings();
+  const { wallet, isLiveWallet } = useAuth();
   const handleShareProfile = async () => {
     try {
       await Share.share({
@@ -26,6 +29,9 @@ export default function WalletProfile({ showBack = false, onOpenMore, onHistory,
     }
   };
   const handleHistory = () => { if (onHistory) onHistory(); else if (onOpenMore) onOpenMore(); };
+  const liveHandle = wallet
+    ? `${walletTitle(wallet.provider)} · ${wallet.address.slice(0, 4)}…${wallet.address.slice(-4)}`
+    : prefs.username;
   return (
     <View style={styles.container}>
       <View style={styles.top}>
@@ -48,8 +54,8 @@ export default function WalletProfile({ showBack = false, onOpenMore, onHistory,
         <View style={styles.avatar}><UserAvatar style={styles.avatarImage} /></View>
         <View style={styles.info}>
           <View style={styles.nameRow}><Text localize={false} style={styles.name}>{prefs.name}</Text><BadgeCheck size={22} color={COLORS.stonkGreen} /></View>
-          <Text localize={false} style={styles.handle}>{prefs.username}</Text>
-          <Text localize={false} style={styles.bio}>{prefs.bio}</Text>
+          <Text localize={false} style={styles.handle}>{isLiveWallet ? liveHandle : prefs.username}</Text>
+          <Text localize={false} style={styles.bio}>{isLiveWallet ? "Live trading · connected wallet" : prefs.bio}</Text>
         </View>
       </View>
     </View>
