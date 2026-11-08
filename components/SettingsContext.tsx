@@ -9,6 +9,7 @@ type Preferences = {
   name: string;
   username: string;
   bio: string;
+  paperTrade: boolean;
   avatarUri: string | null;
   notifications: boolean;
   positions: boolean;
@@ -24,6 +25,7 @@ const initial: Preferences = {
   username: "@unipcs",
   bio: '"If the Lord will, we shall live, and do this, or that." - James 4:15',
   avatarUri: null,
+  paperTrade: false,
   notifications: true,
   positions: false,
   rug: true,

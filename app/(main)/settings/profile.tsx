@@ -1,9 +1,9 @@
 import { LocalizedText as Text, LocalizedTextInput as TextInput, LocalizedAlert as Alert } from "../../../components/LocalizationContext";
 import React, { useState } from "react";
-import { View, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet, Switch } from "react-native";
 import { Settings } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
-import { Page, st } from "../../../components/SettingsUI";
+import { Page, st, lime } from "../../../components/SettingsUI";
 import { useSettings } from "../../../components/SettingsContext";
 import UserAvatar from "../../../components/UserAvatar";
 import { saveProfileAvatar } from "../../../utils/profile-avatar";
@@ -15,6 +15,7 @@ export default function Profile() {
   const [name, setName] = useState(prefs.name);
   const [username, setUsername] = useState(() => usernameValue(prefs.username));
   const [bio, setBio] = useState(prefs.bio);
+  const [paperTrade, setPaperTrade] = useState(prefs.paperTrade);
 
   const pickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -51,7 +52,7 @@ export default function Profile() {
           Alert.alert("Username required", "Enter a username after the @ symbol.");
           return;
         }
-        update({ name, username: `@${handle}`, bio });
+        update({ name, username: `@${handle}`, bio, paperTrade });
         Alert.alert("Saved", "Demo profile updated for this session.");
       }}
     >
@@ -98,11 +99,35 @@ export default function Profile() {
       />
       <Text style={st.label}>Google / Apple</Text>
       <Text style={[st.input, { paddingTop: 12, color: "#999" }]}>Demo account • Not connected</Text>
+      <View style={styles.toggleRow}>
+        <Text style={styles.toggleLabel}>Paper Trade</Text>
+        <Switch
+          accessibilityLabel="Paper Trade"
+          value={paperTrade}
+          onValueChange={setPaperTrade}
+          trackColor={{ false: "#303030", true: lime }}
+          thumbColor={paperTrade ? "#171717" : "#FFFFFF"}
+          ios_backgroundColor="#303030"
+        />
+      </View>
     </Page>
   );
 }
 
 const styles = StyleSheet.create({
+  toggleRow: {
+    minHeight: 55,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+    marginBottom: 20,
+  },
+  toggleLabel: {
+    flex: 1,
+    color: "#FFFFFF",
+    fontSize: 16,
+  },
   usernameField: {
     flexDirection: "row",
     alignItems: "center",
